@@ -1,0 +1,168 @@
+@import "tailwindcss";
+
+@theme static {
+  --color-*: initial;
+  --color-night: #0b0d10;
+  --color-surface: #12161b;
+  --color-raised: #1a2027;
+  --color-line: #29323d;
+  --color-edge: #646f7c;
+  --color-fg: #eef1f5;
+  --color-muted: #94a0ae;
+  --color-lime: #c8f24b;
+  --color-coral: #ff6a4d;
+  --color-mint: #2fd6a1;
+  --color-sky: #55c2ff;
+  --color-amber: #ffc43d;
+  --color-sand: #e8d9a8;
+
+  --font-sans: "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+
+  --shadow-card: inset 0 1px 0 0 rgb(255 255 255 / 0.04), 0 18px 32px -22px rgb(0 0 0 / 0.9);
+
+  --animate-rise: rise 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: none; }
+  }
+}
+
+@layer base {
+  html { scroll-behavior: smooth; color-scheme: dark; }
+  /* Desktop-only site */
+  body {
+    @apply min-h-dvh min-w-[1024px] bg-night font-sans text-fg antialiased;
+    background-image: linear-gradient(to right, rgb(255 255 255 / 0.02) 1px, transparent 1px);
+    background-size: 96px 100%;
+  }
+  h1, h2, h3 { @apply font-extrabold tracking-tight text-balance; line-height: 1.05; }
+  a { text-underline-offset: 4px; }
+  :focus-visible { outline: 2px solid var(--color-lime); outline-offset: 3px; }
+  ::selection { background: var(--color-lime); color: var(--color-night); }
+  select option { background: var(--color-surface); color: var(--color-fg); }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .skip { @apply sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-lime focus:px-4 focus:py-3 focus:font-bold focus:text-night; }
+
+  /* Buttons */
+  .btn {
+    @apply inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg border border-transparent bg-lime px-5 text-sm font-bold text-night no-underline transition duration-150 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .btn:hover:not(:disabled) { @apply brightness-110; }
+  .btn-lg { @apply min-h-12 px-6 text-base; }
+  .btn-ghost { @apply border-edge bg-transparent text-fg; }
+  .btn-ghost:hover:not(:disabled) { @apply bg-raised brightness-100; }
+
+  /* Type bits */
+  .kicker { @apply font-mono text-xs font-semibold uppercase tracking-[0.16em] text-muted; }
+  .display { letter-spacing: -0.04em; line-height: 1.02; }
+  .pill { @apply inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1.5 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-muted; }
+  .field-label { @apply mb-1.5 block font-mono text-xs font-semibold uppercase tracking-[0.14em] text-muted; }
+
+  /* Surfaces */
+  .card { @apply rounded-xl border border-line bg-surface shadow-card; }
+
+  /* Inputs */
+  .field { @apply block min-h-11 w-full rounded-lg border border-edge bg-night px-3 py-2 text-sm text-fg transition placeholder:text-muted/80 focus:border-lime focus:outline-none focus:ring-2 focus:ring-lime/30; }
+  .field.invalid { @apply border-coral focus:border-coral focus:ring-coral/30; }
+  .field.modified.valid { @apply border-mint/70; }
+  .validation-message { @apply mt-1.5 block text-sm font-medium text-coral; }
+
+  .chip { @apply inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-edge bg-surface px-4 text-sm font-semibold text-muted transition hover:text-fg; }
+  .chip:hover { @apply bg-raised; }
+  .chip[aria-pressed="true"] { @apply border-lime bg-lime text-night; }
+
+  .segctl { @apply inline-flex h-11 overflow-hidden rounded-lg border border-edge bg-surface; }
+  .segctl button { @apply cursor-pointer px-4 text-sm font-semibold text-muted transition-colors hover:text-fg; }
+  .segctl button + button { @apply border-l border-edge; }
+  .segctl button[aria-pressed="true"] { @apply bg-lime text-night hover:text-night; }
+  .segctl button:focus-visible { outline-offset: -3px; }
+
+  .pick { @apply flex min-h-28 cursor-pointer flex-col items-start justify-between gap-4 rounded-xl border border-edge bg-surface p-4 text-left transition hover:bg-raised; }
+  .pick-mark { @apply size-4 rounded-full border-2 border-edge transition; }
+  .pick[aria-pressed="true"] { @apply border-lime bg-lime/10; }
+  .pick[aria-pressed="true"] .pick-mark { @apply border-lime bg-lime; }
+
+  /* Tags, badges, avatars */
+  .tag { @apply inline-flex items-center gap-1.5 rounded-full border border-line bg-raised px-2.5 py-1 text-xs font-semibold text-fg; }
+  .tag::before { content: ""; @apply size-2 rounded-full; background: var(--dot, var(--color-muted)); }
+  .tag-movies { --dot: var(--color-coral); }
+  .tag-music { --dot: var(--color-amber); }
+  .tag-sports { --dot: var(--color-mint); }
+  .tag-gaming { --dot: var(--color-sky); }
+  .tag-general { --dot: var(--color-sand); }
+  .badge { @apply ml-1.5 inline-flex rounded-full bg-lime px-2 py-0.5 align-middle text-[10px] font-extrabold uppercase tracking-wider text-night; }
+  .avatar { @apply grid size-10 flex-none place-items-center rounded-full text-sm font-extrabold text-night; }
+  .avatar-sm { @apply size-7 text-[11px]; }
+  .avatar-0 { @apply bg-coral; }
+  .avatar-1 { @apply bg-lime; }
+  .avatar-2 { @apply bg-sky; }
+
+  /* Progress bits */
+  .seg { @apply h-1.5 flex-1 rounded-full bg-line; }
+  .seg-on { @apply bg-lime; }
+  .seg-now { @apply bg-fg; }
+  .seg-good { @apply bg-mint; }
+  .seg-bad { @apply bg-coral; }
+  .pip { @apply size-2.5 rounded-full bg-line; }
+  .pip-on { @apply bg-coral; }
+  .meter { @apply h-1.5 overflow-hidden rounded-full bg-line; }
+
+  /* Answer buttons */
+  .opt {
+    @apply flex min-h-16 w-full cursor-pointer items-center gap-4 rounded-xl border border-edge bg-raised px-4 py-3 text-left text-base font-semibold transition duration-150;
+    @apply enabled:hover:border-lime enabled:hover:bg-night enabled:active:scale-[0.99] disabled:cursor-default;
+  }
+  .opt-key { @apply grid size-8 flex-none place-items-center rounded-md bg-night font-mono text-xs font-bold text-muted; }
+  .opt-good { @apply border-mint bg-mint/15; }
+  .opt-good .opt-key { @apply bg-mint text-night; }
+  .opt-bad { @apply border-coral bg-coral/15; }
+  .opt-bad .opt-key { @apply bg-coral text-night; }
+  .opt-dim { @apply opacity-50; }
+
+  /* Sidebar nav */
+  .side { @apply sticky top-0 flex h-dvh w-60 shrink-0 flex-col gap-8 self-start border-r border-line bg-surface px-4 py-6; }
+  .nav-link { @apply relative flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold text-muted no-underline transition-colors hover:bg-raised hover:text-fg; }
+  .nav-link svg { @apply size-5 flex-none; }
+  .nav-link.active { @apply bg-raised text-fg; }
+  .nav-link.active svg { @apply text-lime; }
+  .nav-link.active::before { content: ""; @apply absolute -left-4 bottom-2 top-2 w-1 rounded-r-full bg-lime; }
+
+  /* Category tiles */
+  .tile { @apply relative flex flex-col overflow-hidden rounded-xl border border-line bg-surface p-6 text-fg no-underline transition duration-200 hover:-translate-y-0.5 hover:border-edge hover:bg-raised; }
+  .tile::after {
+    content: "";
+    @apply pointer-events-none absolute -right-10 -top-10 size-36 rounded-full border-[18px] opacity-25 transition-opacity duration-200;
+    border-color: var(--dot, var(--color-muted));
+  }
+  .tile:hover::after { @apply opacity-50; }
+  .tile-dot { @apply size-3 rounded-full; background: var(--dot, var(--color-muted)); }
+
+  /* Leaderboard rows */
+  .board-row {
+    display: grid;
+    grid-template-columns: 2.75rem minmax(0, 1.5fr) minmax(0, 1fr) 4.5rem 3.5rem 5.5rem;
+    align-items: center;
+    column-gap: 1rem;
+    @apply border-b border-line px-5 py-3 transition-colors;
+  }
+  .board-row:last-child { border-bottom-width: 0; }
+  ol > .board-row:hover, li.board-row:hover { @apply bg-raised/60; }
+  .board-row.head { @apply border-b border-line bg-raised py-2.5; }
+  .board-row.is-you { @apply bg-lime/10; box-shadow: inset 3px 0 0 var(--color-lime); }
+
+  .spinner { @apply inline-block size-4 animate-spin rounded-full border-2 border-current border-t-transparent; }
+
+  #blazor-error-ui { @apply fixed inset-x-0 bottom-0 z-50 hidden items-center justify-between gap-4 border-t border-coral bg-surface px-6 py-3 text-sm; }
+  #blazor-error-ui .dismiss { @apply cursor-pointer px-2; }
+}

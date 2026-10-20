@@ -1,0 +1,48 @@
+﻿@{ var me = SampleData.Find("you"); var streak = me?.Streak ?? 0; }
+
+<aside class="side">
+    <a href="/" class="flex min-h-11 items-center gap-3 px-1 no-underline" aria-label="BrainRush home">
+        <span class="grid size-9 place-items-center rounded-lg bg-lime text-night">
+            <svg viewBox="0 0 24 24" class="size-5" fill="currentColor" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z" /></svg>
+        </span>
+        <span class="text-xl font-extrabold tracking-tight text-fg">BrainRush</span>
+    </a>
+
+    <nav aria-label="Main" class="flex flex-col gap-1">
+        <p class="kicker mb-2 px-3">Menu</p>
+        <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5" /><path d="M5.5 10v9.5h13V10" /></svg>
+            Home
+        </NavLink>
+        <NavLink class="nav-link" href="play">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z" /></svg>
+            Play
+        </NavLink>
+        <NavLink class="nav-link" href="leaderboard">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20V11M12 20V4M19 20v-6" /></svg>
+            Leaderboard
+        </NavLink>
+        <NavLink class="nav-link" href="challenge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5" /><path d="M3.5 10h17M8 3v4M16 3v4" /></svg>
+            Daily challenge
+        </NavLink>
+    </nav>
+
+    <div class="mt-auto rounded-xl border border-line bg-raised p-4">
+        <p class="kicker">Your streak</p>
+        <p class="mt-2 flex items-center gap-2">
+            <svg viewBox="0 0 24 24" class="size-5 text-coral" fill="currentColor" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z" /></svg>
+            <span class="text-3xl font-extrabold tabular-nums">@streak</span>
+            <span class="text-sm text-muted">in a row</span>
+        </p>
+        <div class="mt-3 flex gap-1.5" aria-hidden="true">
+            @for (var s = 0; s < 8; s++)
+            {
+                <span class="pip @(s < streak ? "pip-on" : "")"></span>
+            }
+        </div>
+        <p class="mt-4 border-t border-line pt-3 text-xs text-muted">
+            Daily board resets in <span class="font-mono font-semibold text-fg">@SampleData.UntilReset()</span>
+        </p>
+    </div>
+</aside>

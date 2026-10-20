@@ -1,0 +1,247 @@
+@page "/play"
+@rendermode InteractiveServer
+@implements IDisposable
+
+<PageTitle>Play · BrainRush</PageTitle>
+
+@if (_stage == Stage.Lobby)
+{
+    <section class="grid items-start gap-10 xl:grid-cols-12" aria-labelledby="play-h">
+        <div class="xl:col-span-7">
+            <p class="kicker">Solo round</p>
+            <h1 id="play-h" class="display mt-3 text-6xl">Choose your arena</h1>
+            <p class="mt-4 max-w-lg text-muted">Pick a category or go mixed. The clock starts the moment you do.</p>
+
+            <div class="mt-8 grid grid-cols-3 gap-3" role="group" aria-label="Category">
+                <button type="button" class="pick" aria-pressed="@(_pick is null ? "true" : "false")" @onclick="() => _pick = null">
+                    <span class="pick-mark" aria-hidden="true"></span>
+                    <span>
+                        <span class="block text-lg font-extrabold">Mixed</span>
+                        <span class="mt-0.5 block text-xs text-muted">Six questions from every arena. No safe topics.</span>
+                    </span>
+                </button>
+                @foreach (var c in Enum.GetValues<Category>())
+                {
+                    <button type="button" class="pick" aria-pressed="@(_pick == c ? "true" : "false")" @onclick="() => _pick = c">
+                        <span class="pick-mark" aria-hidden="true"></span>
+                        <span>
+                            <span class="block text-lg font-extrabold">@c.Label()</span>
+                            <span class="mt-0.5 block text-xs text-muted">@c.Blurb()</span>
+                        </span>
+                    </button>
+                }
+            </div>
+        </div>
+
+        <aside class="card p-6 xl:col-span-5" aria-labelledby="setup-h">
+            <h2 id="setup-h" class="text-2xl">Round setup</h2>
+            <p class="mt-1 text-sm text-muted">@(_pick is { } pc ? pc.Label() : "Mixed") · @RoundSize questions</p>
+            <dl class="mt-6 divide-y divide-line text-sm">
+                <div class="flex items-center justify-between py-3"><dt class="text-muted">Time per question</dt><dd class="font-mono font-semibold">15s</dd></div>
+                <div class="flex items-center justify-between py-3"><dt class="text-muted">Right answer</dt><dd class="font-mono font-semibold">+100</dd></div>
+                <div class="flex items-center justify-between py-3"><dt class="text-muted">Speed bonus</dt><dd class="font-mono font-semibold">+5 per second left</dd></div>
+                <div class="flex items-center justify-between py-3"><dt class="text-muted">Streak bonus</dt><dd class="font-mono font-semibold">+10 each, max +50</dd></div>
+            </dl>
+            <button type="button" class="btn btn-lg mt-6 w-full" @onclick="Start">Start the clock</button>
+        </aside>
+    </section>
+}
+else if (_stage is Stage.Asking or Stage.Reveal)
+{
+    var q = Q;
+    <section class="mx-auto max-w-4xl" aria-label="Question">
+        <div class="flex gap-1.5" aria-hidden="true">
+            @for (var n = 0; n < _round.Count; n++)
+            {
+                <span class="seg @SegClass(n)"></span>
+            }
+        </div>
+
+        <div class="mt-5 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <p class="kicker">Question @(_i + 1) of @_round.Count</p>
+                <span class="tag @q.Topic.Css()">@q.Topic.Label()</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="pill">Score <span class="tabular-nums text-fg">@_score</span></span>
+                <span class="pill">
+                    <svg viewBox="0 0 24 24" class="size-3.5 text-coral" fill="currentColor" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z" /></svg>
+                    Streak <span class="tabular-nums text-fg">@_streak</span>
+                </span>
+            </div>
+        </div>
+
+        <div class="card mt-5 p-8">
+            <div class="flex items-start justify-between gap-8">
+                <h1 class="display text-4xl xl:text-5xl">@q.Prompt</h1>
+                <div class="relative size-24 flex-none" role="progressbar" aria-label="Time left" aria-valuemin="0" aria-valuemax="@q.Seconds" aria-valuenow="@_left">
+                    <svg viewBox="0 0 100 100" class="size-full -rotate-90" aria-hidden="true">
+                        <circle cx="50" cy="50" r="44" fill="none" stroke-width="8" class="stroke-line" />
+                        <circle cx="50" cy="50" r="44" fill="none" stroke-width="8" stroke-linecap="round" pathLength="100" stroke-dasharray="100" stroke-dashoffset="@(100 - _left * 100 / q.Seconds)"
+                                class="transition-[stroke-dashoffset] duration-1000 ease-linear @(_left <= 5 ? "stroke-coral" : "stroke-lime")" />
+                    </svg>
+                    <span class="absolute inset-0 grid place-items-center text-3xl font-extrabold tabular-nums" aria-hidden="true">@_left</span>
+                </div>
+            </div>
+
+            <ul class="mt-8 grid grid-cols-2 gap-3">
+                @for (var n = 0; n < q.Options.Count; n++)
+                {
+                    var k = n;
+                    <li>
+                        <button type="button" class="opt @OptClass(k)" disabled="@(_stage == Stage.Reveal)" @onclick="() => Pick(k)">
+                            <span class="opt-key">@((char)('A' + k))</span>
+                            <span>@q.Options[k]</span>
+                        </button>
+                    </li>
+                }
+            </ul>
+        </div>
+
+        <div aria-live="polite" class="mt-5">
+            @if (_stage == Stage.Reveal)
+            {
+                var ok = _chosen == q.CorrectIndex;
+                <div class="flex items-center justify-between gap-6 rounded-xl border p-5 @(ok ? "border-mint bg-mint/10" : "border-coral bg-coral/10")">
+                    <div>
+                        <p class="text-xl font-extrabold">@Feedback</p>
+                        @if (ok)
+                        {
+                            <p class="mt-1 font-mono text-xs text-muted">+@q.Points base · +@(_left * 5) speed · +@(Math.Min(_streak, 5) * 10) streak</p>
+                        }
+                    </div>
+                    <button type="button" class="btn" @onclick="Next">@(_i + 1 >= _round.Count ? "See results" : "Next question")</button>
+                </div>
+            }
+        </div>
+    </section>
+}
+else
+{
+    <section class="grid items-start gap-10 xl:grid-cols-12" aria-labelledby="done-h">
+        <div class="xl:col-span-7">
+            <p class="kicker">Round complete</p>
+            <h1 id="done-h" class="display mt-3 text-7xl xl:text-8xl">@Grade</h1>
+            <p class="mt-5 max-w-md text-lg text-muted">You got @_right of @_round.Count right and held a best streak of @_best. Post it in the daily challenge and make your friends chase it.</p>
+            <div class="mt-8 flex flex-wrap gap-3">
+                <button type="button" class="btn btn-lg" @onclick="() => _stage = Stage.Lobby">Play again</button>
+                <a href="/challenge" class="btn btn-lg btn-ghost">Challenge a friend</a>
+            </div>
+        </div>
+
+        <div class="xl:col-span-5">
+            <dl class="grid grid-cols-2 gap-4">
+                <div class="card p-5"><dt class="kicker">Points</dt><dd class="mt-2 text-5xl font-extrabold tabular-nums">@_score</dd></div>
+                <div class="card p-5"><dt class="kicker">Correct</dt><dd class="mt-2 text-5xl font-extrabold tabular-nums">@_right<span class="text-2xl text-muted"> / @_round.Count</span></dd></div>
+                <div class="card p-5"><dt class="kicker">Best streak</dt><dd class="mt-2 text-5xl font-extrabold tabular-nums">@_best</dd></div>
+                <div class="card p-5"><dt class="kicker">Accuracy</dt><dd class="mt-2 text-5xl font-extrabold tabular-nums">@(_right * 100 / _round.Count)%</dd></div>
+            </dl>
+            <div class="card mt-4 p-5">
+                <p class="kicker">Round recap</p>
+                <div class="mt-3 flex gap-1.5" role="img" aria-label="@_right correct, @(_round.Count - _right) missed">
+                    @foreach (var m in _marks)
+                    {
+                        <span class="seg @(m == true ? "seg-good" : "seg-bad")"></span>
+                    }
+                </div>
+            </div>
+        </div>
+    </section>
+}
+
+@code {
+    enum Stage { Lobby, Asking, Reveal, Done }
+
+    [SupplyParameterFromQuery(Name = "category")] public string? CategoryQuery { get; set; }
+
+    Stage _stage = Stage.Lobby;
+    Category? _pick;
+    List<Question> _round = new();
+    List<bool?> _marks = new();
+    int _i, _left, _score, _streak, _best, _right, _gained;
+    int? _chosen;
+    System.Threading.Timer? _timer;
+
+    Question Q => _round[_i];
+    int RoundSize => _pick is null ? 6 : 4;
+
+    string Grade
+    {
+        get
+        {
+            var pct = _round.Count == 0 ? 0 : _right * 100 / _round.Count;
+            return pct == 100 ? "Flawless" : pct >= 75 ? "Sharp" : pct >= 50 ? "Warming up" : "Cold start";
+        }
+    }
+
+    string Feedback => _chosen is null
+        ? $"Time's up. It was {Q.Options[Q.CorrectIndex]}."
+        : _chosen == Q.CorrectIndex ? $"Correct. +{_gained} points" : $"Nope. It was {Q.Options[Q.CorrectIndex]}.";
+
+    protected override void OnParametersSet()
+    {
+        if (_stage == Stage.Lobby && _pick is null && Enum.TryParse<Category>(CategoryQuery, true, out var c)) _pick = c;
+    }
+
+    string OptClass(int k)
+    {
+        if (_stage != Stage.Reveal) return "";
+        if (k == Q.CorrectIndex) return "opt-good";
+        return k == _chosen ? "opt-bad" : "opt-dim";
+    }
+
+    string SegClass(int n) => _marks[n] switch { true => "seg-good", false => "seg-bad", _ => n == _i ? "seg-now" : "" };
+
+    void Start()
+    {
+        _round = SampleData.Questions
+            .Where(q => _pick is null || q.Topic == _pick)
+            .OrderBy(_ => Random.Shared.Next())
+            .Take(RoundSize).ToList();
+        _marks = _round.Select(_ => (bool?)null).ToList();
+        _i = 0; _score = 0; _streak = 0; _best = 0; _right = 0;
+        Ask();
+    }
+
+    void Ask()
+    {
+        StopTimer();
+        _chosen = null; _gained = 0; _left = Q.Seconds; _stage = Stage.Asking;
+        _timer = new System.Threading.Timer(_ => InvokeAsync(Tick), null, 1000, 1000);
+    }
+
+    void Tick()
+    {
+        if (_stage != Stage.Asking) return;
+        _left--;
+        if (_left <= 0) { _left = 0; Resolve(null); }
+        StateHasChanged();
+    }
+
+    void Pick(int n) { if (_stage == Stage.Asking) Resolve(n); }
+
+    void Resolve(int? pick)
+    {
+        StopTimer();
+        _chosen = pick;
+        _marks[_i] = pick == Q.CorrectIndex;
+        if (pick == Q.CorrectIndex)
+        {
+            _streak++; _right++; _best = Math.Max(_best, _streak);
+            _gained = Q.Points + _left * 5 + Math.Min(_streak, 5) * 10;
+            _score += _gained;
+        }
+        else _streak = 0;
+        _stage = Stage.Reveal;
+    }
+
+    void Next()
+    {
+        if (_i + 1 >= _round.Count) { StopTimer(); _stage = Stage.Done; }
+        else { _i++; Ask(); }
+    }
+
+    void StopTimer() { _timer?.Dispose(); _timer = null; }
+
+    public void Dispose() => StopTimer();
+}

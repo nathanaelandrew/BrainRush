@@ -1,0 +1,41 @@
+{
+  "Files": [
+    {
+      "Id": "Z:\\L23Y16W28\\midterm\\BrainRush\\obj\\Debug\\net8.0\\scopedcss\\projectbundle\\BrainRush.bundle.scp.css",
+      "PackagePath": "staticwebassets\\BrainRush.bundle.scp.css"
+    },
+    {
+      "Id": "Z:\\L23Y16W28\\midterm\\BrainRush\\wwwroot\\app.css",
+      "PackagePath": "staticwebassets\\app.css"
+    },
+    {
+      "Id": "Z:\\L23Y16W28\\midterm\\BrainRush\\wwwroot\\bootstrap\\bootstrap.min.css",
+      "PackagePath": "staticwebassets\\bootstrap\\bootstrap.min.css"
+    },
+    {
+      "Id": "Z:\\L23Y16W28\\midterm\\BrainRush\\wwwroot\\bootstrap\\bootstrap.min.css.map",
+      "PackagePath": "staticwebassets\\bootstrap\\bootstrap.min.css.map"
+    },
+    {
+      "Id": "Z:\\L23Y16W28\\midterm\\BrainRush\\wwwroot\\favicon.png",
+      "PackagePath": "staticwebassets\\favicon.png"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.BrainRush.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.build.BrainRush.props",
+      "PackagePath": "build\\BrainRush.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.buildMultiTargeting.BrainRush.props",
+      "PackagePath": "buildMultiTargeting\\BrainRush.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.buildTransitive.BrainRush.props",
+      "PackagePath": "buildTransitive\\BrainRush.props"
+    }
+  ],
+  "ElementsToRemove": []
+}

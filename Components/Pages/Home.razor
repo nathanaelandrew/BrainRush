@@ -1,0 +1,143 @@
+﻿@page "/"
+
+<PageTitle>BrainRush · Timed trivia battles</PageTitle>
+
+<section class="grid items-start gap-10 xl:grid-cols-12" aria-labelledby="hero-h">
+    <div class="animate-rise xl:col-span-7 xl:pt-6">
+        <p class="pill"><span class="size-2 animate-pulse rounded-full bg-lime"></span>@SampleData.Challenges.Count challenges open today</p>
+        <h1 id="hero-h" class="display mt-6 text-6xl xl:text-7xl">
+            Answer fast.<br />Hold the <span class="text-lime">streak</span>.<br />Beat your crew by midnight.
+        </h1>
+        <p class="mt-6 max-w-xl text-lg text-muted">
+            Every question has a clock and every right answer in a row pays more. Pick movies, music, sports, gaming or general knowledge, then see where you land on the board.
+        </p>
+        <div class="mt-8 flex flex-wrap gap-3">
+            <a href="/play" class="btn btn-lg">Start a round</a>
+            <a href="/leaderboard" class="btn btn-lg btn-ghost">See the board</a>
+        </div>
+        <dl class="mt-12 flex gap-12 border-t border-line pt-6">
+            <div>
+                <dt class="kicker">Questions</dt>
+                <dd class="mt-1 text-4xl font-extrabold tabular-nums">@SampleData.Questions.Count</dd>
+            </div>
+            <div>
+                <dt class="kicker">Players</dt>
+                <dd class="mt-1 text-4xl font-extrabold tabular-nums">@SampleData.Players.Count</dd>
+            </div>
+            <div>
+                <dt class="kicker">Best streak</dt>
+                <dd class="mt-1 text-4xl font-extrabold tabular-nums">@SampleData.Players.Max(p => p.BestStreak)</dd>
+            </div>
+        </dl>
+    </div>
+
+    <aside class="card animate-rise overflow-hidden xl:col-span-5" style="animation-delay:120ms" aria-labelledby="daily-h">
+        <div class="flex items-center justify-between border-b border-line bg-raised px-6 py-3">
+            <p class="kicker">Daily challenge · @DateTime.Today.ToString("ddd d MMM")</p>
+            <p class="kicker flex items-center gap-2 text-lime"><span class="size-1.5 animate-pulse rounded-full bg-lime"></span>@SampleData.UntilReset() left</p>
+        </div>
+        <div class="p-6">
+            <h2 id="daily-h" class="display text-4xl">@_today.Title</h2>
+            <p class="mt-4 flex flex-wrap items-center gap-3 text-sm text-muted">
+                <span class="tag @_today.Topic.Css()">@_today.Topic.Label()</span>
+                @_today.Questions questions · @_today.Seconds s each
+            </p>
+
+            <div class="mt-6 flex items-center justify-between gap-4">
+                <div class="flex -space-x-2" role="img" aria-label="@_today.Finished.Count of @_today.Invited.Count finished">
+                    @foreach (var h in _today.Invited)
+                    {
+                        var p = SampleData.Find(h);
+                        if (p is null) { continue; }
+                        <span class="avatar avatar-sm @p.AvatarCss ring-2 ring-surface @(_today.Finished.Contains(h) ? "" : "opacity-40")" aria-hidden="true">@p.Initials</span>
+                    }
+                </div>
+                <p class="text-sm text-muted">@_today.Finished.Count of @_today.Invited.Count done</p>
+            </div>
+            <div class="mt-4 flex gap-1.5" aria-hidden="true">
+                @for (var s = 0; s < _today.Invited.Count; s++)
+                {
+                    <span class="seg @(s < _today.Finished.Count ? "seg-on" : "")"></span>
+                }
+            </div>
+            <p class="mt-4 text-sm text-muted">Waiting on <span class="text-fg">@Waiting</span></p>
+            <a href="/challenge" class="btn mt-6 w-full">Join the challenge</a>
+        </div>
+    </aside>
+</section>
+
+<section class="mt-20" aria-labelledby="arenas-h">
+    <div class="flex items-end justify-between gap-6">
+        <div>
+            <p class="kicker">Five arenas</p>
+            <h2 id="arenas-h" class="display mt-2 text-4xl">Pick your arena</h2>
+        </div>
+        <a href="/play" class="btn btn-ghost">Mixed round</a>
+    </div>
+
+    <div class="mt-6 grid grid-cols-12 gap-4">
+        @foreach (var (c, i) in Enum.GetValues<Category>().Select((c, i) => (c, i)))
+        {
+            <a href="/play?category=@c" class="tile @c.Css() @Spans[i]">
+                <span class="flex items-center gap-2">
+                    <span class="tile-dot"></span>
+                    <span class="kicker text-fg">@((i + 1).ToString("00"))</span>
+                </span>
+                <span class="mt-12 block text-3xl font-extrabold tracking-tight">@c.Label()</span>
+                <span class="mt-1 block max-w-xs text-sm text-muted">@c.Blurb()</span>
+                <span class="mt-6 flex items-center justify-between text-sm font-semibold">
+                    <span class="tabular-nums">@SampleData.Questions.Count(q => q.Topic == c) questions</span>
+                    <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+                </span>
+            </a>
+        }
+    </div>
+</section>
+
+<section class="mt-20" aria-labelledby="top-h">
+    <div class="flex items-end justify-between gap-6">
+        <div>
+            <p class="kicker">Week of @WeekStart</p>
+            <h2 id="top-h" class="display mt-2 text-4xl">Top three right now</h2>
+        </div>
+        <a href="/leaderboard" class="btn btn-ghost">Full board</a>
+    </div>
+
+    <div class="mt-6 grid grid-cols-[1.4fr_1fr_1fr] gap-4">
+        @foreach (var (p, n) in _top.Select((p, n) => (p, n)))
+        {
+            <article class="card flex flex-col justify-between p-6 @(n == 0 ? "border-lime/50 bg-raised" : "")">
+                <div class="flex items-center justify-between">
+                    <span class="font-mono text-sm font-semibold @(n == 0 ? "text-lime" : "text-muted")">#@((n + 1).ToString("00"))</span>
+                    <span class="inline-flex items-center gap-1 font-mono text-xs text-muted">
+                        <svg viewBox="0 0 24 24" class="size-3.5 text-coral" fill="currentColor" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z" /></svg>
+                        @p.Streak streak
+                    </span>
+                </div>
+                <div class="mt-8 flex items-center gap-3">
+                    <span class="avatar @p.AvatarCss" aria-hidden="true">@p.Initials</span>
+                    <div class="min-w-0">
+                        <h3 class="truncate @(n == 0 ? "text-3xl" : "text-xl")">@p.Name</h3>
+                        <p class="font-mono text-xs text-muted">@("@" + p.Handle) · @p.Accuracy% accuracy</p>
+                    </div>
+                </div>
+                <p class="mt-6 font-extrabold tabular-nums @(n == 0 ? "text-5xl" : "text-3xl")">@p.Total.ToString("N0") <span class="text-base font-semibold text-muted">pts</span></p>
+            </article>
+        }
+    </div>
+</section>
+
+@code {
+    static readonly string[] Spans =
+    {
+        "col-span-6 xl:col-span-5", "col-span-6 xl:col-span-4", "col-span-6 xl:col-span-3",
+        "col-span-6 xl:col-span-7", "col-span-12 xl:col-span-5",
+    };
+
+    readonly List<Player> _top = SampleData.Players.OrderByDescending(p => p.Total).Take(3).ToList();
+    readonly DailyChallenge _today = SampleData.Challenges[0];
+
+    string Waiting => string.Join(", ", _today.Invited.Except(_today.Finished).Select(h => SampleData.Find(h)?.Name ?? h));
+
+    string WeekStart => DateTime.Today.AddDays(-(((int)DateTime.Today.DayOfWeek + 6) % 7)).ToString("d MMM");
+}

@@ -1,0 +1,140 @@
+@page "/leaderboard"
+@rendermode InteractiveServer
+
+<PageTitle>Leaderboard · BrainRush</PageTitle>
+
+@{
+    var rows = Rows;
+    var lead = rows.FirstOrDefault();
+    var top = rows.Count == 0 ? 1 : Math.Max(1, rows.Max(x => x.Score));
+}
+
+<section aria-labelledby="board-h">
+    <p class="kicker">Week of @WeekStart</p>
+    <h1 id="board-h" class="display mt-3 text-6xl">The board</h1>
+
+    <div class="card mt-8 flex flex-wrap items-end gap-4 p-4">
+        <div>
+            <span class="field-label">Show</span>
+            <div class="segctl" role="group" aria-label="Who to show">
+                <button type="button" aria-pressed="@(_tab == "all" ? "true" : "false")" @onclick='() => _tab = "all"'>Everyone</button>
+                <button type="button" aria-pressed="@(_tab == "friends" ? "true" : "false")" @onclick='() => _tab = "friends"'>Friends</button>
+            </div>
+        </div>
+        <div class="w-52">
+            <label for="cat" class="field-label">Category</label>
+            <select id="cat" class="field" @bind="_catKey">
+                <option value="">All categories</option>
+                @foreach (var c in Enum.GetValues<Category>())
+                {
+                    <option value="@c">@c.Label()</option>
+                }
+            </select>
+        </div>
+        <div class="min-w-48 flex-1">
+            <label for="q" class="field-label">Search players</label>
+            <input id="q" class="field" type="search" placeholder="Name or handle" autocomplete="off" @bind="_q" @bind:event="oninput" />
+        </div>
+        <div>
+            <span class="field-label">Sort by</span>
+            <div class="segctl" role="group" aria-label="Sort by">
+                <button type="button" aria-pressed="@(_sort == "score" ? "true" : "false")" @onclick='() => _sort = "score"'>Points</button>
+                <button type="button" aria-pressed="@(_sort == "streak" ? "true" : "false")" @onclick='() => _sort = "streak"'>Streak</button>
+                <button type="button" aria-pressed="@(_sort == "acc" ? "true" : "false")" @onclick='() => _sort = "acc"'>Accuracy</button>
+            </div>
+        </div>
+    </div>
+
+    @if (lead is not null)
+    {
+        <article class="mt-6 flex items-center justify-between gap-6 rounded-xl bg-lime p-6 text-night">
+            <div class="flex items-center gap-5">
+                <span class="grid size-16 flex-none place-items-center rounded-full bg-night text-xl font-extrabold text-lime" aria-hidden="true">@lead.P.Initials</span>
+                <div>
+                    <p class="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-night/70">Leading @(Cat is { } lc ? lc.Label() : "overall") · by @SortName</p>
+                    <h2 class="mt-1 text-4xl">@lead.P.Name</h2>
+                    <p class="mt-1 font-mono text-xs text-night/70">@("@" + lead.P.Handle) · best streak @lead.P.BestStreak · @lead.P.Accuracy% accuracy</p>
+                </div>
+            </div>
+            <p class="text-6xl font-extrabold tabular-nums">@lead.Score.ToString("N0")</p>
+        </article>
+    }
+
+    <p class="mt-8 font-mono text-xs font-semibold uppercase tracking-[0.16em] text-muted" aria-live="polite">@rows.Count @(rows.Count == 1 ? "player" : "players") shown</p>
+
+    @if (rows.Count == 0)
+    {
+        <div class="card mt-3 p-10 text-center">
+            <h2 class="text-3xl">Nobody here yet</h2>
+            <p class="mt-2 text-muted">No player matches "@_q" in this view.</p>
+            <button type="button" class="btn mt-6" @onclick="Clear">Clear filters</button>
+        </div>
+    }
+    else
+    {
+        <div class="card mt-3 overflow-hidden">
+            <div class="board-row head" aria-hidden="true">
+                <span class="kicker">Rank</span><span class="kicker">Player</span><span class="kicker">Share of top</span><span class="kicker">Streak</span><span class="kicker">Acc.</span><span class="kicker text-right">Points</span>
+            </div>
+            <ol>
+                @foreach (var r in rows)
+                {
+                    <li class="board-row @(r.P.IsYou ? "is-you" : "")">
+                        <span class="font-mono text-lg font-bold tabular-nums @(r.Rank == 1 ? "text-lime" : "text-muted")">@r.Rank.ToString("00")</span>
+                        <div class="flex min-w-0 items-center gap-3">
+                            <span class="avatar @r.P.AvatarCss" aria-hidden="true">@r.P.Initials</span>
+                            <div class="min-w-0">
+                                <p class="truncate font-semibold">@r.P.Name @if (r.P.IsYou) { <span class="badge">You</span> }</p>
+                                <p class="truncate font-mono text-xs text-muted">@("@" + r.P.Handle)</p>
+                            </div>
+                        </div>
+                        <div class="meter" aria-hidden="true"><div class="h-full rounded-full bg-lime" style="width:@(r.Score * 100 / top)%"></div></div>
+                        <span class="inline-flex items-center gap-1 font-mono text-sm font-semibold">
+                            <svg viewBox="0 0 24 24" class="size-3.5 text-coral" fill="currentColor" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z" /></svg>@r.P.Streak
+                        </span>
+                        <span class="font-mono text-sm">@r.P.Accuracy%</span>
+                        <span class="text-right text-xl font-extrabold tabular-nums">@r.Score.ToString("N0")</span>
+                    </li>
+                }
+            </ol>
+        </div>
+    }
+</section>
+
+@code {
+    record Row(Player P, int Score, int Rank);
+
+    string _tab = "all", _sort = "score", _q = "", _catKey = "";
+
+    Category? Cat => Enum.TryParse<Category>(_catKey, out var c) ? c : null;
+
+    string SortName => _sort switch { "streak" => "streak", "acc" => "accuracy", _ => "points" };
+
+    string WeekStart => DateTime.Today.AddDays(-(((int)DateTime.Today.DayOfWeek + 6) % 7)).ToString("d MMM");
+
+    int ScoreOf(Player p) => Cat is { } c && p.Scores.TryGetValue(c, out var v) ? v : p.Total;
+
+    List<Row> Rows
+    {
+        get
+        {
+            var term = _q.Trim();
+            var list = SampleData.Players
+                .Where(p => _tab == "all" || p.IsFriend || p.IsYou)
+                .Where(p => term.Length == 0
+                    || p.Name.Contains(term, StringComparison.OrdinalIgnoreCase)
+                    || p.Handle.Contains(term, StringComparison.OrdinalIgnoreCase))
+                .Select(p => (P: p, S: ScoreOf(p)));
+
+            var sorted = _sort switch
+            {
+                "streak" => list.OrderByDescending(x => x.P.Streak).ThenByDescending(x => x.S),
+                "acc" => list.OrderByDescending(x => x.P.Accuracy).ThenByDescending(x => x.S),
+                _ => list.OrderByDescending(x => x.S),
+            };
+            return sorted.Select((x, i) => new Row(x.P, x.S, i + 1)).ToList();
+        }
+    }
+
+    void Clear() { _q = ""; _catKey = ""; _tab = "all"; }
+}

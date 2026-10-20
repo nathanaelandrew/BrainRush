@@ -1,0 +1,191 @@
+@page "/challenge"
+@rendermode InteractiveServer
+
+<PageTitle>Daily challenge · BrainRush</PageTitle>
+
+<section class="grid items-start gap-10 xl:grid-cols-12" aria-labelledby="chal-h">
+    <div class="xl:col-span-7">
+        <p class="kicker">Daily challenge with friends</p>
+        <h1 id="chal-h" class="display mt-3 text-6xl">Dare your crew</h1>
+        <p class="mt-4 max-w-lg text-muted">Pick a topic, set the clock and invite friends. Everyone answers the same questions today and the board closes at midnight.</p>
+
+        @if (_done && _made is not null)
+        {
+            <div class="card mt-8 overflow-hidden" role="status">
+                <div class="h-1.5 bg-mint"></div>
+                <div class="p-6">
+                    <p class="kicker text-mint">Challenge sent</p>
+                    <h2 class="display mt-2 text-4xl">@_made.Title</h2>
+                    <p class="mt-3 text-muted">@(_made.Invited.Count - 1) @(_made.Invited.Count == 2 ? "friend has" : "friends have") been invited to @_made.Questions @_made.Topic.Label() questions at @_made.Seconds seconds each.</p>
+                    <div class="mt-5 flex -space-x-2" aria-hidden="true">
+                        @foreach (var h in _made.Invited)
+                        {
+                            var p = SampleData.Find(h);
+                            if (p is null) { continue; }
+                            <span class="avatar avatar-sm @p.AvatarCss ring-2 ring-surface">@p.Initials</span>
+                        }
+                    </div>
+                    <div class="mt-6 flex flex-wrap gap-3">
+                        <a href="/play?category=@_made.Topic" class="btn">Play it now</a>
+                        <button type="button" class="btn btn-ghost" @onclick="Reset">Create another</button>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <EditForm EditContext="_ctx" OnValidSubmit="Submit" class="card mt-8 grid gap-6 p-6" novalidate>
+                <DataAnnotationsValidator />
+
+                <div>
+                    <label for="title" class="field-label">Challenge name</label>
+                    <InputText id="title" class="field" @bind-Value="_form.Title" placeholder="e.g. Friday film buffs" autocomplete="off" />
+                    <ValidationMessage For="() => _form.Title" />
+                </div>
+
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label for="topic" class="field-label">Topic</label>
+                        <InputSelect id="topic" class="field" @bind-Value="_form.Topic">
+                            <option value="">Choose a topic</option>
+                            @foreach (var c in Enum.GetValues<Category>())
+                            {
+                                <option value="@c">@c.Label()</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="() => _form.Topic" />
+                    </div>
+                    <div>
+                        <label for="count" class="field-label">Questions</label>
+                        <InputNumber id="count" class="field" @bind-Value="_form.QuestionCount" />
+                        <ValidationMessage For="() => _form.QuestionCount" />
+                    </div>
+                    <div>
+                        <label for="secs" class="field-label">Seconds each</label>
+                        <InputSelect id="secs" class="field" @bind-Value="_form.SecondsPerQuestion">
+                            <option value="10">10</option>
+                            <option value="15">15</option>
+                            <option value="20">20</option>
+                            <option value="30">30</option>
+                        </InputSelect>
+                        <ValidationMessage For="() => _form.SecondsPerQuestion" />
+                    </div>
+                </div>
+
+                <fieldset>
+                    <legend class="field-label">Invite friends · @_form.Friends.Count selected</legend>
+                    <div class="mt-2 flex flex-wrap gap-2">
+                        @foreach (var f in _friends)
+                        {
+                            var on = _form.Friends.Contains(f.Handle);
+                            <button type="button" class="chip" aria-pressed="@(on ? "true" : "false")" @onclick="() => Toggle(f.Handle)">
+                                <span class="avatar avatar-sm @f.AvatarCss" aria-hidden="true">@f.Initials</span>
+                                @f.Name
+                                <span class="font-normal opacity-80">· @f.Streak streak</span>
+                            </button>
+                        }
+                    </div>
+                    <ValidationMessage For="() => _form.Friends" />
+                </fieldset>
+
+                <div>
+                    <label for="note" class="field-label">Trash talk (optional) · @(_form.Note?.Length ?? 0)/120</label>
+                    <InputTextArea id="note" class="field" rows="3" @bind-Value="_form.Note" placeholder="Loser buys the next round of snacks." />
+                    <ValidationMessage For="() => _form.Note" />
+                </div>
+
+                <div class="border-t border-line pt-6">
+                    <button type="submit" class="btn btn-lg" disabled="@_busy" aria-busy="@(_busy ? "true" : "false")">
+                        @if (_busy)
+                        {
+                            <span class="spinner" aria-hidden="true"></span><span>Sending invites…</span>
+                        }
+                        else
+                        {
+                            <span>Send challenge</span>
+                        }
+                    </button>
+                </div>
+            </EditForm>
+        }
+    </div>
+
+    <aside class="xl:col-span-5" aria-labelledby="live-h">
+        <div class="flex items-end justify-between gap-3">
+            <h2 id="live-h" class="display text-3xl">Live right now</h2>
+            <p class="pill"><span class="size-1.5 animate-pulse rounded-full bg-lime"></span>Closes in @SampleData.UntilReset()</p>
+        </div>
+        <ul class="mt-5 grid gap-4">
+            @foreach (var c in _live)
+            {
+                var yourTurn = c.Invited.Contains("you") && !c.Finished.Contains("you");
+                <li class="card p-5">
+                    <div class="flex items-start justify-between gap-3">
+                        <h3 class="text-xl">@c.Title</h3>
+                        <span class="tag @c.Topic.Css()">@c.Topic.Label()</span>
+                    </div>
+                    <p class="mt-1 font-mono text-xs text-muted">Hosted by @(SampleData.Find(c.Host)?.Name ?? c.Host) · @c.Questions Qs · @c.Seconds s</p>
+                    <div class="mt-4 flex gap-1.5" role="img" aria-label="@c.Finished.Count of @c.Invited.Count finished">
+                        @for (var s = 0; s < c.Invited.Count; s++)
+                        {
+                            <span class="seg @(s < c.Finished.Count ? "seg-on" : "")"></span>
+                        }
+                    </div>
+                    <div class="mt-4 flex items-center justify-between gap-3">
+                        <span class="font-mono text-sm text-muted">@c.Finished.Count / @c.Invited.Count done</span>
+                        @if (yourTurn)
+                        {
+                            <a href="/play?category=@c.Topic" class="btn">Your turn</a>
+                        }
+                    </div>
+                </li>
+            }
+        </ul>
+    </aside>
+</section>
+
+@code {
+    ChallengeForm _form = new();
+    EditContext _ctx = default!;
+    bool _busy, _done;
+    DailyChallenge? _made;
+    readonly List<Player> _friends = SampleData.Players.Where(p => p.IsFriend).ToList();
+    readonly List<DailyChallenge> _live = SampleData.Challenges.ToList();
+
+    protected override void OnInitialized() => _ctx = new EditContext(_form);
+
+    void Toggle(string handle)
+    {
+        if (!_form.Friends.Remove(handle)) _form.Friends.Add(handle);
+        _ctx.NotifyFieldChanged(_ctx.Field(nameof(ChallengeForm.Friends)));
+    }
+
+    async Task Submit()
+    {
+        _busy = true;
+        StateHasChanged();
+        await Task.Delay(900);
+        _made = new DailyChallenge
+        {
+            Id = _live.Count + 1,
+            Title = _form.Title.Trim(),
+            Topic = _form.Topic ?? Category.General,
+            Host = "you",
+            Questions = _form.QuestionCount,
+            Seconds = _form.SecondsPerQuestion,
+            Note = _form.Note,
+            Invited = new List<string> { "you" }.Concat(_form.Friends).ToList(),
+        };
+        _live.Insert(0, _made);
+        _busy = false;
+        _done = true;
+    }
+
+    void Reset()
+    {
+        _form = new ChallengeForm();
+        _ctx = new EditContext(_form);
+        _made = null;
+        _done = false;
+    }
+}
