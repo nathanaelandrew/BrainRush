@@ -1,20 +1,8 @@
 {
   "Files": [
     {
-      "Id": "Z:\\L23Y16W28\\midterm\\BrainRush\\obj\\Debug\\net8.0\\scopedcss\\projectbundle\\BrainRush.bundle.scp.css",
-      "PackagePath": "staticwebassets\\BrainRush.bundle.scp.css"
-    },
-    {
       "Id": "Z:\\L23Y16W28\\midterm\\BrainRush\\wwwroot\\app.css",
       "PackagePath": "staticwebassets\\app.css"
-    },
-    {
-      "Id": "Z:\\L23Y16W28\\midterm\\BrainRush\\wwwroot\\bootstrap\\bootstrap.min.css",
-      "PackagePath": "staticwebassets\\bootstrap\\bootstrap.min.css"
-    },
-    {
-      "Id": "Z:\\L23Y16W28\\midterm\\BrainRush\\wwwroot\\bootstrap\\bootstrap.min.css.map",
-      "PackagePath": "staticwebassets\\bootstrap\\bootstrap.min.css.map"
     },
     {
       "Id": "Z:\\L23Y16W28\\midterm\\BrainRush\\wwwroot\\favicon.png",

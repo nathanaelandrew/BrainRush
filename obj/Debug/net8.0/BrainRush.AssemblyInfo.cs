@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("BrainRush")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+93c1554c1997bebf386372de24a44da593beaad1")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f5d4a1d2c4e7a85cca00ea68f2b0aea346d89a06")]
 [assembly: System.Reflection.AssemblyProductAttribute("BrainRush")]
 [assembly: System.Reflection.AssemblyTitleAttribute("BrainRush")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

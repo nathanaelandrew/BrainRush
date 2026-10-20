@@ -2,10 +2,10 @@
 
 <PageTitle>BrainRush · Timed trivia battles</PageTitle>
 
-<section class="grid items-start gap-10 xl:grid-cols-12" aria-labelledby="hero-h">
+<section class="grid items-start gap-12 xl:grid-cols-12" aria-labelledby="hero-h">
     <div class="animate-rise xl:col-span-7 xl:pt-6">
         <p class="pill"><span class="size-2 animate-pulse rounded-full bg-lime"></span>@SampleData.Challenges.Count challenges open today</p>
-        <h1 id="hero-h" class="display mt-6 text-6xl xl:text-7xl">
+        <h1 id="hero-h" class="display mt-6 text-6xl 2xl:text-8xl">
             Answer fast.<br />Hold the <span class="text-lime">streak</span>.<br />Beat your crew by midnight.
         </h1>
         <p class="mt-6 max-w-xl text-lg text-muted">
@@ -15,24 +15,24 @@
             <a href="/play" class="btn btn-lg">Start a round</a>
             <a href="/leaderboard" class="btn btn-lg btn-ghost">See the board</a>
         </div>
-        <dl class="mt-12 flex gap-12 border-t border-line pt-6">
-            <div>
+        <dl class="mt-10 grid max-w-xl grid-cols-3 divide-x divide-line overflow-hidden rounded-xl border border-line bg-surface">
+            <div class="px-6 py-4">
                 <dt class="kicker">Questions</dt>
-                <dd class="mt-1 text-4xl font-extrabold tabular-nums">@SampleData.Questions.Count</dd>
+                <dd class="mt-1 text-3xl font-extrabold tabular-nums">@SampleData.Questions.Count</dd>
             </div>
-            <div>
+            <div class="px-6 py-4">
                 <dt class="kicker">Players</dt>
-                <dd class="mt-1 text-4xl font-extrabold tabular-nums">@SampleData.Players.Count</dd>
+                <dd class="mt-1 text-3xl font-extrabold tabular-nums">@SampleData.Players.Count</dd>
             </div>
-            <div>
+            <div class="px-6 py-4">
                 <dt class="kicker">Best streak</dt>
-                <dd class="mt-1 text-4xl font-extrabold tabular-nums">@SampleData.Players.Max(p => p.BestStreak)</dd>
+                <dd class="mt-1 text-3xl font-extrabold tabular-nums">@SampleData.Players.Max(p => p.BestStreak)</dd>
             </div>
         </dl>
     </div>
 
-    <aside class="card animate-rise overflow-hidden xl:col-span-5" style="animation-delay:120ms" aria-labelledby="daily-h">
-        <div class="flex items-center justify-between border-b border-line bg-raised px-6 py-3">
+    <aside class="card relative animate-rise overflow-hidden border-lime/25 bg-linear-to-b from-raised to-surface shadow-[0_40px_80px_-40px_rgb(0_0_0/0.9)] xl:col-span-5" style="animation-delay:120ms" aria-labelledby="daily-h">
+        <div class="flex items-center justify-between border-b border-line bg-night/40 px-6 py-3">
             <p class="kicker">Daily challenge · @DateTime.Today.ToString("ddd d MMM")</p>
             <p class="kicker flex items-center gap-2 text-lime"><span class="size-1.5 animate-pulse rounded-full bg-lime"></span>@SampleData.UntilReset() left</p>
         </div>
@@ -44,7 +44,7 @@
             </p>
 
             <div class="mt-6 flex items-center justify-between gap-4">
-                <div class="flex -space-x-2" role="img" aria-label="@_today.Finished.Count of @_today.Invited.Count finished">
+                <div class="flex -space-x-1.5" role="img" aria-label="@_today.Finished.Count of @_today.Invited.Count finished">
                     @foreach (var h in _today.Invited)
                     {
                         var p = SampleData.Find(h);
@@ -60,13 +60,13 @@
                     <span class="seg @(s < _today.Finished.Count ? "seg-on" : "")"></span>
                 }
             </div>
-            <p class="mt-4 text-sm text-muted">Waiting on <span class="text-fg">@Waiting</span></p>
-            <a href="/challenge" class="btn mt-6 w-full">Join the challenge</a>
+            <p class="mt-4 text-sm text-muted">Waiting on <span class="font-semibold text-fg">@Waiting</span></p>
+            <a href="/challenge" class="btn btn-lg mt-6 w-full">Join the challenge</a>
         </div>
     </aside>
 </section>
 
-<section class="mt-20" aria-labelledby="arenas-h">
+<section class="mt-24" aria-labelledby="arenas-h">
     <div class="flex items-end justify-between gap-6">
         <div>
             <p class="kicker">Five arenas</p>
@@ -78,7 +78,7 @@
     <div class="mt-6 grid grid-cols-12 gap-4">
         @foreach (var (c, i) in Enum.GetValues<Category>().Select((c, i) => (c, i)))
         {
-            <a href="/play?category=@c" class="tile @c.Css() @Spans[i]">
+            <a href="/play?category=@c" class="group tile @c.Css() @Spans[i]">
                 <span class="flex items-center gap-2">
                     <span class="tile-dot"></span>
                     <span class="kicker text-fg">@((i + 1).ToString("00"))</span>
@@ -87,14 +87,14 @@
                 <span class="mt-1 block max-w-xs text-sm text-muted">@c.Blurb()</span>
                 <span class="mt-6 flex items-center justify-between text-sm font-semibold">
                     <span class="tabular-nums">@SampleData.Questions.Count(q => q.Topic == c) questions</span>
-                    <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+                    <svg viewBox="0 0 24 24" class="size-5 transition-transform duration-200 group-hover:translate-x-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
                 </span>
             </a>
         }
     </div>
 </section>
 
-<section class="mt-20" aria-labelledby="top-h">
+<section class="mt-24" aria-labelledby="top-h">
     <div class="flex items-end justify-between gap-6">
         <div>
             <p class="kicker">Week of @WeekStart</p>

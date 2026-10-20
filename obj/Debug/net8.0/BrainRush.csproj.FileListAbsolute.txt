@@ -18,10 +18,7 @@ Z:\L23Y16W28\midterm\BrainRush\obj\Debug\net8.0\staticwebassets\msbuild.build.Br
 Z:\L23Y16W28\midterm\BrainRush\obj\Debug\net8.0\staticwebassets\msbuild.buildMultiTargeting.BrainRush.props
 Z:\L23Y16W28\midterm\BrainRush\obj\Debug\net8.0\staticwebassets\msbuild.buildTransitive.BrainRush.props
 Z:\L23Y16W28\midterm\BrainRush\obj\Debug\net8.0\staticwebassets.pack.json
-Z:\L23Y16W28\midterm\BrainRush\obj\Debug\net8.0\scopedcss\Components\Layout\MainLayout.razor.rz.scp.css
-Z:\L23Y16W28\midterm\BrainRush\obj\Debug\net8.0\scopedcss\Components\Layout\NavMenu.razor.rz.scp.css
 Z:\L23Y16W28\midterm\BrainRush\obj\Debug\net8.0\scopedcss\bundle\BrainRush.styles.css
-Z:\L23Y16W28\midterm\BrainRush\obj\Debug\net8.0\scopedcss\projectbundle\BrainRush.bundle.scp.css
 Z:\L23Y16W28\midterm\BrainRush\obj\Debug\net8.0\BrainRush.dll
 Z:\L23Y16W28\midterm\BrainRush\obj\Debug\net8.0\refint\BrainRush.dll
 Z:\L23Y16W28\midterm\BrainRush\obj\Debug\net8.0\BrainRush.pdb
@@ -29,3 +26,4 @@ Z:\L23Y16W28\midterm\BrainRush\obj\Debug\net8.0\BrainRush.genruntimeconfig.cache
 Z:\L23Y16W28\midterm\BrainRush\obj\Debug\net8.0\ref\BrainRush.dll
 Z:\L23Y16W28\midterm\BrainRush\bin\Debug\net8.0\package-lock.json
 Z:\L23Y16W28\midterm\BrainRush\bin\Debug\net8.0\package.json
+Z:\L23Y16W28\midterm\BrainRush\obj\Debug\net8.0\BrainRush.sourcelink.json

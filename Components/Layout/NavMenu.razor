@@ -1,4 +1,8 @@
-﻿@{ var me = SampleData.Find("you"); var streak = me?.Streak ?? 0; }
+﻿@{
+    var me = SampleData.Find("you");
+    var streak = me?.Streak ?? 0;
+    var toMax = Math.Max(0, 5 - streak);
+}
 
 <aside class="side">
     <a href="/" class="flex min-h-11 items-center gap-3 px-1 no-underline" aria-label="BrainRush home">
@@ -8,7 +12,7 @@
         <span class="text-xl font-extrabold tracking-tight text-fg">BrainRush</span>
     </a>
 
-    <nav aria-label="Main" class="flex flex-col gap-1">
+    <nav aria-label="Main" class="flex flex-col gap-1.5">
         <p class="kicker mb-2 px-3">Menu</p>
         <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5" /><path d="M5.5 10v9.5h13V10" /></svg>
@@ -28,11 +32,13 @@
         </NavLink>
     </nav>
 
-    <div class="mt-auto rounded-xl border border-line bg-raised p-4">
-        <p class="kicker">Your streak</p>
-        <p class="mt-2 flex items-center gap-2">
-            <svg viewBox="0 0 24 24" class="size-5 text-coral" fill="currentColor" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z" /></svg>
-            <span class="text-3xl font-extrabold tabular-nums">@streak</span>
+    <div class="mt-auto rounded-xl border border-line bg-raised p-4 text-fg">
+        <div class="flex items-center justify-between">
+            <p class="kicker">Your streak</p>
+            <p class="font-mono text-xs text-muted">best @(me?.BestStreak ?? 0)</p>
+        </div>
+        <p class="mt-2 flex items-baseline gap-2">
+            <span class="text-4xl font-extrabold tabular-nums text-fg">@streak</span>
             <span class="text-sm text-muted">in a row</span>
         </p>
         <div class="mt-3 flex gap-1.5" aria-hidden="true">
@@ -41,7 +47,17 @@
                 <span class="pip @(s < streak ? "pip-on" : "")"></span>
             }
         </div>
-        <p class="mt-4 border-t border-line pt-3 text-xs text-muted">
+        <p class="mt-3 text-xs text-muted">
+            @if (toMax > 0)
+            {
+                <span><span class="font-semibold text-fg">@toMax more</span> to max the +50 bonus</span>
+            }
+            else
+            {
+                <span class="font-semibold text-lime">Max streak bonus active</span>
+            }
+        </p>
+        <p class="mt-3 border-t border-line pt-3 text-xs text-muted">
             Daily board resets in <span class="font-mono font-semibold text-fg">@SampleData.UntilReset()</span>
         </p>
     </div>
