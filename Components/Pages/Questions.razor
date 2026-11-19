@@ -1,0 +1,356 @@
+@page "/questions"
+@using Supabase.Postgrest.Interfaces
+@inject Supabase.Client Db
+
+<PageTitle>Question bank · BrainRush</PageTitle>
+
+<section aria-labelledby="bank-h">
+    <p class="kicker">Question bank</p>
+    <h1 id="bank-h" class="display mt-3 text-6xl">Write the questions</h1>
+    <p class="mt-4 max-w-2xl text-muted">Every round and daily challenge draws from this list. Deleting a question only hides it, so you can bring it back from the deleted view.</p>
+
+    <div class="mt-8 grid items-start gap-10 xl:grid-cols-12">
+        @* ---------- Add / edit form ---------- *@
+        <div class="xl:col-span-5">
+            <EditForm EditContext="_ctx" OnValidSubmit="Save" class="card grid gap-5 p-6" novalidate>
+                <DataAnnotationsValidator />
+                <div class="flex items-center justify-between gap-3">
+                    <h2 class="text-2xl">@(_editingId is null ? "Add a question" : "Edit question")</h2>
+                    @if (_editingId is not null)
+                    {
+                        <span class="badge">#@_editingId</span>
+                    }
+                </div>
+
+                @if (_saveError is not null)
+                {
+                    <p class="rounded-lg border border-coral bg-coral/10 p-3 text-sm" role="alert">Could not save: @_saveError</p>
+                }
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="q-topic" class="field-label">Arena</label>
+                        <InputSelect id="q-topic" class="field" @bind-Value="_form.Topic">
+                            <option value="">Choose an arena</option>
+                            @foreach (var c in Enum.GetValues<Category>())
+                            {
+                                <option value="@c">@c.Label()</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="() => _form.Topic" />
+                    </div>
+                    <div>
+                        <label for="q-secs" class="field-label">Seconds</label>
+                        <InputSelect id="q-secs" class="field" @bind-Value="_form.Seconds">
+                            <option value="10">10</option>
+                            <option value="15">15</option>
+                            <option value="20">20</option>
+                            <option value="30">30</option>
+                        </InputSelect>
+                        <ValidationMessage For="() => _form.Seconds" />
+                    </div>
+                </div>
+
+                <div>
+                    <label for="q-prompt" class="field-label">Question · @_form.Prompt.Length/200</label>
+                    <InputTextArea id="q-prompt" class="field" rows="2" @bind-Value="_form.Prompt" placeholder="Which planet is known as the Red Planet?" />
+                    <ValidationMessage For="() => _form.Prompt" />
+                </div>
+
+                <fieldset>
+                    <legend class="field-label">Answers · pick the right one</legend>
+                    <InputRadioGroup @bind-Value="_form.CorrectIndex">
+                        <div class="mt-2 grid gap-2">
+                            <div class="flex items-center gap-3">
+                                <InputRadio Value="0" id="q-a-ok" class="size-4 accent-lime" aria-label="Answer A is right" />
+                                <label for="q-a" class="opt-key">A</label>
+                                <InputText id="q-a" class="field" @bind-Value="_form.OptionA" placeholder="Answer A" autocomplete="off" />
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <InputRadio Value="1" id="q-b-ok" class="size-4 accent-lime" aria-label="Answer B is right" />
+                                <label for="q-b" class="opt-key">B</label>
+                                <InputText id="q-b" class="field" @bind-Value="_form.OptionB" placeholder="Answer B" autocomplete="off" />
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <InputRadio Value="2" id="q-c-ok" class="size-4 accent-lime" aria-label="Answer C is right" />
+                                <label for="q-c" class="opt-key">C</label>
+                                <InputText id="q-c" class="field" @bind-Value="_form.OptionC" placeholder="Answer C" autocomplete="off" />
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <InputRadio Value="3" id="q-d-ok" class="size-4 accent-lime" aria-label="Answer D is right" />
+                                <label for="q-d" class="opt-key">D</label>
+                                <InputText id="q-d" class="field" @bind-Value="_form.OptionD" placeholder="Answer D" autocomplete="off" />
+                            </div>
+                        </div>
+                    </InputRadioGroup>
+                    <ValidationMessage For="() => _form.OptionA" />
+                    <ValidationMessage For="() => _form.OptionB" />
+                    <ValidationMessage For="() => _form.OptionC" />
+                    <ValidationMessage For="() => _form.OptionD" />
+                </fieldset>
+
+                <div class="flex flex-wrap gap-3 border-t border-line pt-5">
+                    <button type="submit" class="btn" disabled="@_saving" aria-busy="@(_saving ? "true" : "false")">
+                        @if (_saving)
+                        {
+                            <span class="spinner" aria-hidden="true"></span><span>Saving…</span>
+                        }
+                        else
+                        {
+                            <span>@(_editingId is null ? "Add question" : "Save changes")</span>
+                        }
+                    </button>
+                    @if (_editingId is not null)
+                    {
+                        <button type="button" class="btn btn-ghost" @onclick="ResetForm">Stop editing</button>
+                    }
+                </div>
+            </EditForm>
+        </div>
+
+        @* ---------- List ---------- *@
+        <div class="xl:col-span-7">
+            <div class="card flex flex-wrap items-end gap-4 p-4">
+                <div class="w-52">
+                    <label for="filter" class="field-label">Arena</label>
+                    <select id="filter" class="field" @bind="_filterKey" @bind:after="Load">
+                        <option value="">All arenas</option>
+                        @foreach (var c in Enum.GetValues<Category>())
+                        {
+                            <option value="@c">@c.Label()</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <span class="field-label">Show</span>
+                    <div class="segctl" role="group" aria-label="Which questions">
+                        <button type="button" aria-pressed="@(!_showDeleted ? "true" : "false")" @onclick="() => ShowDeleted(false)">Live</button>
+                        <button type="button" aria-pressed="@(_showDeleted ? "true" : "false")" @onclick="() => ShowDeleted(true)">Deleted</button>
+                    </div>
+                </div>
+            </div>
+
+            <p class="mt-6 font-mono text-xs font-semibold uppercase tracking-[0.16em] text-muted" aria-live="polite">
+                @if (_loading) { <span class="spinner mr-2 align-[-2px]" aria-hidden="true"></span> }
+                @_items.Count @(_showDeleted ? "deleted" : "live") @(_items.Count == 1 ? "question" : "questions")
+            </p>
+
+            @if (_error is not null)
+            {
+                <DbError Message="@_error" OnRetry="Load" />
+            }
+            else if (!_loading && _items.Count == 0)
+            {
+                <div class="card mt-3 p-10 text-center">
+                    <h2 class="text-3xl">@(_showDeleted ? "Nothing deleted" : "No questions here yet")</h2>
+                    <p class="mt-2 text-muted">@(_showDeleted ? "Deleted questions show up here so you can restore them." : "Add one with the form.")</p>
+                </div>
+            }
+
+            <ul class="mt-3 grid gap-3">
+                @foreach (var q in _items)
+                {
+                    <li class="card p-5 @(_editingId == q.Id ? "border-lime/60" : "") @(_showDeleted ? "opacity-70" : "")">
+                        <div class="flex items-start justify-between gap-4">
+                            <div class="min-w-0">
+                                <p class="flex flex-wrap items-center gap-2">
+                                    <span class="tag @q.Arena.Css()">@q.Arena.Label()</span>
+                                    <span class="font-mono text-xs text-muted">#@q.Id · @q.Seconds s · +@q.Points</span>
+                                </p>
+                                <h3 class="mt-2 text-lg">@q.Prompt</h3>
+                                <p class="mt-1 text-sm text-muted">
+                                    @for (var n = 0; n < q.Options.Count; n++)
+                                    {
+                                        var k = n;
+                                        <span class="@(k == q.CorrectIndex ? "font-semibold text-mint" : "")">@((char)('A' + k)). @q.Options[k]</span>
+                                        @if (k < q.Options.Count - 1) { <span aria-hidden="true"> · </span> }
+                                    }
+                                </p>
+                                @if (q.DeletedAt is { } d)
+                                {
+                                    <p class="mt-1 font-mono text-xs text-coral">deleted_at @d.ToLocalTime().ToString("d MMM yyyy, HH:mm")</p>
+                                }
+                            </div>
+                            <div class="flex flex-none gap-2">
+                                @if (_showDeleted)
+                                {
+                                    <button type="button" class="btn" disabled="@(_busyId == q.Id)" @onclick="() => Restore(q)">Restore</button>
+                                }
+                                else if (_confirmId == q.Id)
+                                {
+                                    <button type="button" class="btn btn-ghost" @onclick="() => _confirmId = null">Keep</button>
+                                    <button type="button" class="btn border-coral bg-coral text-night" disabled="@(_busyId == q.Id)" @onclick="() => Remove(q)">Delete</button>
+                                }
+                                else
+                                {
+                                    <button type="button" class="btn btn-ghost" @onclick="() => Edit(q)">Edit</button>
+                                    <button type="button" class="btn btn-ghost" @onclick="() => _confirmId = q.Id">Delete</button>
+                                }
+                            </div>
+                        </div>
+                    </li>
+                }
+            </ul>
+        </div>
+    </div>
+</section>
+
+@code {
+    QuestionForm _form = new();
+    EditContext _ctx = default!;
+    long? _editingId, _confirmId, _busyId;
+    List<Question> _items = new();
+    string _filterKey = "";
+    bool _showDeleted, _loading, _saving;
+    string? _error, _saveError;
+
+    Category? Filter => Enum.TryParse<Category>(_filterKey, out var c) ? c : null;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        _ctx = new EditContext(_form);
+        await Load();
+    }
+
+    /// <summary>One GET. The database filters by arena and by deleted/live, and sorts.</summary>
+    async Task Load()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            IPostgrestTable<Question> query = Db.From<Question>();
+
+            query = _showDeleted
+                ? query.Where(q => q.DeletedAt != null)
+                : query.Where(q => q.DeletedAt == null);
+
+            if (Filter is { } c)
+            {
+                var topic = c.ToString();
+                query = query.Where(q => q.TopicName == topic);
+            }
+
+            var res = await query
+                .Order(q => q.Id, Ordering.Descending)       // newest first
+                .Range(0, 99)                                // first 100
+                .Get();
+            _items = res.Models;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    async Task ShowDeleted(bool deleted)
+    {
+        _showDeleted = deleted;
+        _confirmId = null;
+        await Load();
+    }
+
+    void Edit(Question q)
+    {
+        _editingId = q.Id;
+        _form = QuestionForm.From(q);
+        _ctx = new EditContext(_form);
+        _saveError = null;
+    }
+
+    void ResetForm()
+    {
+        _editingId = null;
+        _form = new QuestionForm();
+        _ctx = new EditContext(_form);
+        _saveError = null;
+    }
+
+    /// <summary>Create (POST) or update (PATCH), depending on whether a question is being edited.</summary>
+    async Task Save()
+    {
+        if (_saving) return;                          // button is disabled too: no double POST
+        _saving = true;
+        _saveError = null;
+        try
+        {
+            var topic = (_form.Topic ?? Category.General).ToString();
+
+            if (_editingId is { } id)
+            {
+                await Db.From<Question>()
+                    .Where(q => q.Id == id)                  // always Where, or every row would change
+                    .Set(q => q.TopicName, topic)
+                    .Set(q => q.Prompt, _form.Prompt.Trim())
+                    .Set(q => q.Options, _form.Options)
+                    .Set(q => q.CorrectIndex, _form.CorrectIndex)
+                    .Set(q => q.Seconds, _form.Seconds)
+                    .Update();
+            }
+            else
+            {
+                await Db.From<Question>().Insert(new Question
+                {
+                    TopicName = topic,
+                    Prompt = _form.Prompt.Trim(),
+                    Options = _form.Options,
+                    CorrectIndex = _form.CorrectIndex,
+                    Seconds = _form.Seconds,
+                });
+            }
+
+            ResetForm();
+            _showDeleted = false;
+            await Load();
+        }
+        catch (Exception ex)
+        {
+            _saveError = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    /// <summary>Soft delete: only fills in deleted_at. The row stays, and Load() skips it.</summary>
+    async Task Remove(Question q)
+    {
+        _busyId = q.Id;
+        try
+        {
+            var id = q.Id;
+            await Db.From<Question>()
+                .Where(x => x.Id == id)
+                .Set(x => x.DeletedAt, DateTime.UtcNow)
+                .Update();
+            if (_editingId == id) ResetForm();
+            _confirmId = null;
+            await Load();
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _busyId = null; }
+    }
+
+    /// <summary>Undo a soft delete by clearing deleted_at.</summary>
+    async Task Restore(Question q)
+    {
+        _busyId = q.Id;
+        try
+        {
+            var id = q.Id;
+            await Db.From<Question>()
+                .Where(x => x.Id == id)
+                .Set(x => x.DeletedAt, (DateTime?)null)
+                .Update();
+            await Load();
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _busyId = null; }
+    }
+}

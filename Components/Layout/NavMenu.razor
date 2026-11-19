@@ -1,5 +1,8 @@
-﻿@{
-    var me = SampleData.Find("you");
+﻿@implements IDisposable
+@inject PlayerSession Session
+
+@{
+    var me = Session.Me;
     var streak = me?.Streak ?? 0;
     var toMax = Math.Max(0, 5 - streak);
 }
@@ -30,6 +33,10 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5" /><path d="M3.5 10h17M8 3v4M16 3v4" /></svg>
             Daily challenge
         </NavLink>
+        <NavLink class="nav-link" href="questions">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5h16M4 12h16M4 18.5h10" /></svg>
+            Question bank
+        </NavLink>
     </nav>
 
     <div class="mt-auto rounded-xl border border-line bg-raised p-4 text-fg">
@@ -38,7 +45,7 @@
             <p class="font-mono text-xs text-muted">best @(me?.BestStreak ?? 0)</p>
         </div>
         <p class="mt-2 flex items-baseline gap-2">
-            <span class="text-4xl font-extrabold tabular-nums text-fg">@streak</span>
+            <span class="text-4xl font-extrabold tabular-nums text-fg">@(me is null ? "–" : streak)</span>
             <span class="text-sm text-muted">in a row</span>
         </p>
         <div class="mt-3 flex gap-1.5" aria-hidden="true">
@@ -58,7 +65,20 @@
             }
         </p>
         <p class="mt-3 border-t border-line pt-3 text-xs text-muted">
-            Daily board resets in <span class="font-mono font-semibold text-fg">@SampleData.UntilReset()</span>
+            Daily board resets in <span class="font-mono font-semibold text-fg">@PlayerSession.UntilReset()</span>
         </p>
     </div>
 </aside>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        Session.Changed += OnChanged;
+        try { await Session.GetMeAsync(); }
+        catch { /* the page itself shows the database error */ }
+    }
+
+    void OnChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Session.Changed -= OnChanged;
+}

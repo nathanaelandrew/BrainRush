@@ -1,48 +1,79 @@
 @page "/play"
-@rendermode InteractiveServer
 @implements IDisposable
+@inject Supabase.Client Db
+@inject PlayerSession Session
 
 <PageTitle>Play · BrainRush</PageTitle>
 
-@if (_stage == Stage.Lobby)
+@if (_error is not null)
+{
+    <DbError Message="@_error" OnRetry="() => { _error = null; _stage = Stage.Lobby; }" />
+}
+else if (_stage == Stage.Lobby)
 {
     <section class="grid items-start gap-10 xl:grid-cols-12" aria-labelledby="play-h">
         <div class="xl:col-span-7">
-            <p class="kicker">Solo round</p>
-            <h1 id="play-h" class="display mt-3 text-6xl">Choose your arena</h1>
-            <p class="mt-4 max-w-lg text-muted">Pick a category or go mixed. The clock starts the moment you do.</p>
-
-            <div class="mt-8 grid grid-cols-3 gap-3" role="group" aria-label="Category">
-                <button type="button" class="pick" aria-pressed="@(_pick is null ? "true" : "false")" @onclick="() => _pick = null">
-                    <span class="pick-mark" aria-hidden="true"></span>
-                    <span>
-                        <span class="block text-lg font-extrabold">Mixed</span>
-                        <span class="mt-0.5 block text-xs text-muted">Six questions from every arena. No safe topics.</span>
-                    </span>
-                </button>
-                @foreach (var c in Enum.GetValues<Category>())
+            @if (_challenge is not null)
+            {
+                <p class="kicker">Daily challenge · hosted by @_challenge.HostName</p>
+                <h1 id="play-h" class="display mt-3 text-6xl">@_challenge.Title</h1>
+                <p class="mt-4 max-w-lg text-muted">Everyone in this challenge plays @_challenge.Arena.Label() at @_challenge.Seconds seconds a question. Finish to tick yourself off the list.</p>
+                @if (!string.IsNullOrWhiteSpace(_challenge.Note))
                 {
-                    <button type="button" class="pick" aria-pressed="@(_pick == c ? "true" : "false")" @onclick="() => _pick = c">
+                    <p class="card mt-6 max-w-lg p-4 text-sm italic text-muted">“@_challenge.Note”</p>
+                }
+            }
+            else
+            {
+                <p class="kicker">Solo round</p>
+                <h1 id="play-h" class="display mt-3 text-6xl">Choose your arena</h1>
+                <p class="mt-4 max-w-lg text-muted">Pick a category or go mixed. The clock starts the moment you do.</p>
+
+                <div class="mt-8 grid grid-cols-3 gap-3" role="group" aria-label="Category">
+                    <button type="button" class="pick" aria-pressed="@(_pick is null ? "true" : "false")" @onclick="() => _pick = null">
                         <span class="pick-mark" aria-hidden="true"></span>
                         <span>
-                            <span class="block text-lg font-extrabold">@c.Label()</span>
-                            <span class="mt-0.5 block text-xs text-muted">@c.Blurb()</span>
+                            <span class="block text-lg font-extrabold">Mixed</span>
+                            <span class="mt-0.5 block text-xs text-muted">Six questions from every arena. No safe topics.</span>
                         </span>
                     </button>
-                }
-            </div>
+                    @foreach (var c in Enum.GetValues<Category>())
+                    {
+                        <button type="button" class="pick" aria-pressed="@(_pick == c ? "true" : "false")" @onclick="() => _pick = c">
+                            <span class="pick-mark" aria-hidden="true"></span>
+                            <span>
+                                <span class="block text-lg font-extrabold">@c.Label()</span>
+                                <span class="mt-0.5 block text-xs text-muted">@c.Blurb()</span>
+                            </span>
+                        </button>
+                    }
+                </div>
+            }
         </div>
 
         <aside class="card p-6 xl:col-span-5" aria-labelledby="setup-h">
             <h2 id="setup-h" class="text-2xl">Round setup</h2>
             <p class="mt-1 text-sm text-muted">@(_pick is { } pc ? pc.Label() : "Mixed") · @RoundSize questions</p>
             <dl class="mt-6 divide-y divide-line text-sm">
-                <div class="flex items-center justify-between py-3"><dt class="text-muted">Time per question</dt><dd class="font-mono font-semibold">15s</dd></div>
+                <div class="flex items-center justify-between py-3"><dt class="text-muted">Time per question</dt><dd class="font-mono font-semibold">@(_challenge?.Seconds ?? 15)s</dd></div>
                 <div class="flex items-center justify-between py-3"><dt class="text-muted">Right answer</dt><dd class="font-mono font-semibold">+100</dd></div>
                 <div class="flex items-center justify-between py-3"><dt class="text-muted">Speed bonus</dt><dd class="font-mono font-semibold">+5 per second left</dd></div>
                 <div class="flex items-center justify-between py-3"><dt class="text-muted">Streak bonus</dt><dd class="font-mono font-semibold">+10 each, max +50</dd></div>
             </dl>
-            <button type="button" class="btn btn-lg mt-6 w-full" @onclick="Start">Start the clock</button>
+            @if (_empty)
+            {
+                <p class="mt-4 text-sm text-coral" role="status">No questions in this arena yet. <a href="/questions" class="link">Add some in the question bank</a>.</p>
+            }
+            <button type="button" class="btn btn-lg mt-6 w-full" disabled="@_loading" @onclick="Start">
+                @if (_loading)
+                {
+                    <span class="spinner" aria-hidden="true"></span><span>Loading questions…</span>
+                }
+                else
+                {
+                    <span>Start the clock</span>
+                }
+            </button>
         </aside>
     </section>
 }
@@ -60,7 +91,7 @@ else if (_stage is Stage.Asking or Stage.Reveal)
         <div class="mt-5 flex flex-wrap items-center justify-between gap-3">
             <div class="flex items-center gap-3">
                 <p class="kicker">Question @(_i + 1) of @_round.Count</p>
-                <span class="tag @q.Topic.Css()">@q.Topic.Label()</span>
+                <span class="tag @q.Arena.Css()">@q.Arena.Label()</span>
             </div>
             <div class="flex items-center gap-3">
                 <span class="pill">Score <span class="tabular-nums text-fg">@_score</span></span>
@@ -74,10 +105,10 @@ else if (_stage is Stage.Asking or Stage.Reveal)
         <div class="card mt-5 p-8">
             <div class="flex items-start justify-between gap-8">
                 <h1 class="display text-4xl xl:text-5xl">@q.Prompt</h1>
-                <div class="relative size-24 flex-none" role="progressbar" aria-label="Time left" aria-valuemin="0" aria-valuemax="@q.Seconds" aria-valuenow="@_left">
+                <div class="relative size-24 flex-none" role="progressbar" aria-label="Time left" aria-valuemin="0" aria-valuemax="@SecondsFor(q)" aria-valuenow="@_left">
                     <svg viewBox="0 0 100 100" class="size-full -rotate-90" aria-hidden="true">
                         <circle cx="50" cy="50" r="44" fill="none" stroke-width="8" class="stroke-line" />
-                        <circle cx="50" cy="50" r="44" fill="none" stroke-width="8" stroke-linecap="round" pathLength="100" stroke-dasharray="100" stroke-dashoffset="@(100 - _left * 100 / q.Seconds)"
+                        <circle cx="50" cy="50" r="44" fill="none" stroke-width="8" stroke-linecap="round" pathLength="100" stroke-dasharray="100" stroke-dashoffset="@(100 - _left * 100 / SecondsFor(q))"
                                 class="transition-[stroke-dashoffset] duration-1000 ease-linear @(_left <= 5 ? "stroke-coral" : "stroke-lime")" />
                     </svg>
                     <span class="absolute inset-0 grid place-items-center text-3xl font-extrabold tabular-nums" aria-hidden="true">@_left</span>
@@ -123,6 +154,20 @@ else
             <p class="kicker">Round complete</p>
             <h1 id="done-h" class="display mt-3 text-7xl xl:text-8xl">@Grade</h1>
             <p class="mt-5 max-w-md text-lg text-muted">You got @_right of @_round.Count right and held a best streak of @_best. Post it in the daily challenge and make your friends chase it.</p>
+            <p class="mt-4 font-mono text-xs uppercase tracking-[0.14em] @(_saveError is null ? "text-muted" : "text-coral")" role="status">
+                @if (_saving)
+                {
+                    <span class="inline-flex items-center gap-2"><span class="spinner" aria-hidden="true"></span>Saving your round…</span>
+                }
+                else if (_saveError is not null)
+                {
+                    <span>Could not save this round: @_saveError</span>
+                }
+                else
+                {
+                    <span>Saved to the leaderboard@(_challenge is not null ? " and the challenge" : "")</span>
+                }
+            </p>
             <div class="mt-8 flex flex-wrap gap-3">
                 <button type="button" class="btn btn-lg" @onclick="() => _stage = Stage.Lobby">Play again</button>
                 <a href="/challenge" class="btn btn-lg btn-ghost">Challenge a friend</a>
@@ -153,17 +198,24 @@ else
     enum Stage { Lobby, Asking, Reveal, Done }
 
     [SupplyParameterFromQuery(Name = "category")] public string? CategoryQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "challenge")] public long? ChallengeQuery { get; set; }
 
     Stage _stage = Stage.Lobby;
     Category? _pick;
-    List<Question> _round = new();
+    ChallengeCard? _challenge;
+    List<PoolQuestion> _round = new();
     List<bool?> _marks = new();
     int _i, _left, _score, _streak, _best, _right, _gained;
     int? _chosen;
+    bool _loading, _empty, _saving;
+    string? _error, _saveError;
     System.Threading.Timer? _timer;
 
-    Question Q => _round[_i];
-    int RoundSize => _pick is null ? 6 : 4;
+    PoolQuestion Q => _round[_i];
+    int RoundSize => _challenge?.QuestionCount ?? (_pick is null ? 6 : 4);
+
+    // A challenge sets the clock for everyone; a solo round uses each question's own time.
+    int SecondsFor(PoolQuestion q) => _challenge?.Seconds ?? q.Seconds;
 
     string Grade
     {
@@ -178,9 +230,24 @@ else
         ? $"Time's up. It was {Q.Options[Q.CorrectIndex]}."
         : _chosen == Q.CorrectIndex ? $"Correct. +{_gained} points" : $"Nope. It was {Q.Options[Q.CorrectIndex]}.";
 
-    protected override void OnParametersSet()
+    protected override async Task OnParametersSetAsync()
     {
-        if (_stage == Stage.Lobby && _pick is null && Enum.TryParse<Category>(CategoryQuery, true, out var c)) _pick = c;
+        if (_stage != Stage.Lobby) return;
+
+        if (ChallengeQuery is { } id && _challenge?.Id != id)
+        {
+            try
+            {
+                // One GET: the challenge with its members, straight from the challenge_cards view.
+                _challenge = await Db.From<ChallengeCard>().Where(c => c.Id == id).Single();
+                if (_challenge is not null) _pick = _challenge.Arena;
+            }
+            catch (Exception ex) { _error = ex.Message; }
+        }
+        else if (_pick is null && Enum.TryParse<Category>(CategoryQuery, true, out var c))
+        {
+            _pick = c;
+        }
     }
 
     string OptClass(int k)
@@ -192,12 +259,35 @@ else
 
     string SegClass(int n) => _marks[n] switch { true => "seg-good", false => "seg-bad", _ => n == _i ? "seg-now" : "" };
 
-    void Start()
+    async Task Start()
     {
-        _round = SampleData.Questions
-            .Where(q => _pick is null || q.Topic == _pick)
-            .OrderBy(_ => Random.Shared.Next())
-            .Take(RoundSize).ToList();
+        _loading = true;
+        _empty = false;
+        try
+        {
+            // One GET. The question_pool view is already in random order and hides deleted rows,
+            // so the database filters by topic and returns only the questions this round needs.
+            Supabase.Postgrest.Interfaces.IPostgrestTable<PoolQuestion> query = Db.From<PoolQuestion>();
+            if (_pick is { } c)
+            {
+                var topic = c.ToString();
+                query = query.Where(q => q.TopicName == topic);
+            }
+            var res = await query.Range(0, RoundSize - 1).Get();
+            _round = res.Models;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+            return;
+        }
+        finally
+        {
+            _loading = false;
+        }
+
+        if (_round.Count == 0) { _empty = true; return; }
+
         _marks = _round.Select(_ => (bool?)null).ToList();
         _i = 0; _score = 0; _streak = 0; _best = 0; _right = 0;
         Ask();
@@ -206,7 +296,7 @@ else
     void Ask()
     {
         StopTimer();
-        _chosen = null; _gained = 0; _left = Q.Seconds; _stage = Stage.Asking;
+        _chosen = null; _gained = 0; _left = SecondsFor(Q); _stage = Stage.Asking;
         _timer = new System.Threading.Timer(_ => InvokeAsync(Tick), null, 1000, 1000);
     }
 
@@ -235,10 +325,68 @@ else
         _stage = Stage.Reveal;
     }
 
-    void Next()
+    async Task Next()
     {
-        if (_i + 1 >= _round.Count) { StopTimer(); _stage = Stage.Done; }
-        else { _i++; Ask(); }
+        if (_i + 1 < _round.Count) { _i++; Ask(); return; }
+
+        StopTimer();
+        _stage = Stage.Done;
+        await SaveRound();
+    }
+
+    /// <summary>Stores the finished round. Runs once per round, never inside a loop.</summary>
+    async Task SaveRound()
+    {
+        _saving = true;
+        _saveError = null;
+        StateHasChanged();
+        try
+        {
+            var me = await Session.GetMeAsync()
+                     ?? throw new InvalidOperationException("No player has is_you = true. Run database/seed.sql.");
+            var meId = me.Id;
+
+            // 1. POST: add a row to the rounds history table (never updated afterwards).
+            await Db.From<Round>().Insert(new Round
+            {
+                PlayerId = meId,
+                TopicName = _pick?.ToString(),
+                ChallengeId = _challenge?.Id,
+                Score = _score,
+                Correct = _right,
+                Total = _round.Count,
+                BestStreak = _best,
+            });
+
+            // 2. PATCH: overwrite your current streak and keep the best one.
+            var best = Math.Max(me.BestStreak, _best);
+            await Db.From<Player>()
+                .Where(p => p.Id == meId)
+                .Set(p => p.Streak, _streak)
+                .Set(p => p.BestStreak, best)
+                .Update();
+
+            // 3. PATCH: tick yourself off the challenge, if you played one.
+            if (_challenge is not null && _challenge.Includes(meId) && !_challenge.HasFinished(meId))
+            {
+                var challengeId = _challenge.Id;
+                await Db.From<ChallengePlayer>()
+                    .Where(cp => cp.ChallengeId == challengeId)
+                    .Where(cp => cp.PlayerId == meId)
+                    .Set(cp => cp.FinishedAt, DateTime.UtcNow)
+                    .Update();
+            }
+
+            await Session.RefreshAsync();               // side menu shows the new streak
+        }
+        catch (Exception ex)
+        {
+            _saveError = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
     }
 
     void StopTimer() { _timer?.Dispose(); _timer = null; }

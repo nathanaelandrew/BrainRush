@@ -1,29 +1,32 @@
 @page "/leaderboard"
-@rendermode InteractiveServer
+@implements IDisposable
+@using Supabase.Postgrest
+@using Supabase.Postgrest.Interfaces
+@inject Supabase.Client Db
 
 <PageTitle>Leaderboard · BrainRush</PageTitle>
 
 @{
-    var rows = Rows;
+    var rows = _rows;
     var lead = rows.FirstOrDefault();
     var top = rows.Count == 0 ? 1 : Math.Max(1, rows.Max(x => x.Score));
 }
 
 <section aria-labelledby="board-h">
-    <p class="kicker">Week of @WeekStart</p>
+    <p class="kicker">All-time standings</p>
     <h1 id="board-h" class="display mt-3 text-6xl">The board</h1>
 
     <div class="card mt-8 flex flex-wrap items-end gap-4 p-4">
         <div>
             <span class="field-label">Show</span>
             <div class="segctl" role="group" aria-label="Who to show">
-                <button type="button" aria-pressed="@(_tab == "all" ? "true" : "false")" @onclick='() => _tab = "all"'>Everyone</button>
-                <button type="button" aria-pressed="@(_tab == "friends" ? "true" : "false")" @onclick='() => _tab = "friends"'>Friends</button>
+                <button type="button" aria-pressed="@(_tab == "all" ? "true" : "false")" @onclick='() => SetTab("all")'>Everyone</button>
+                <button type="button" aria-pressed="@(_tab == "friends" ? "true" : "false")" @onclick='() => SetTab("friends")'>Friends</button>
             </div>
         </div>
         <div class="w-52">
             <label for="cat" class="field-label">Category</label>
-            <select id="cat" class="field" @bind="_catKey">
+            <select id="cat" class="field" @bind="_catKey" @bind:after="Load">
                 <option value="">All categories</option>
                 @foreach (var c in Enum.GetValues<Category>())
                 {
@@ -33,14 +36,14 @@
         </div>
         <div class="min-w-48 flex-1">
             <label for="q" class="field-label">Search players</label>
-            <input id="q" class="field" type="search" placeholder="Name or handle" autocomplete="off" @bind="_q" @bind:event="oninput" />
+            <input id="q" class="field" type="search" placeholder="Name or handle" autocomplete="off" @bind="_q" @bind:event="oninput" @bind:after="SearchChanged" />
         </div>
         <div>
             <span class="field-label">Sort by</span>
             <div class="segctl" role="group" aria-label="Sort by">
-                <button type="button" aria-pressed="@(_sort == "score" ? "true" : "false")" @onclick='() => _sort = "score"'>Points</button>
-                <button type="button" aria-pressed="@(_sort == "streak" ? "true" : "false")" @onclick='() => _sort = "streak"'>Streak</button>
-                <button type="button" aria-pressed="@(_sort == "acc" ? "true" : "false")" @onclick='() => _sort = "acc"'>Accuracy</button>
+                <button type="button" aria-pressed="@(_sort == "score" ? "true" : "false")" @onclick='() => SetSort("score")'>Points</button>
+                <button type="button" aria-pressed="@(_sort == "streak" ? "true" : "false")" @onclick='() => SetSort("streak")'>Streak</button>
+                <button type="button" aria-pressed="@(_sort == "acc" ? "true" : "false")" @onclick='() => SetSort("acc")'>Accuracy</button>
             </div>
         </div>
     </div>
@@ -60,9 +63,14 @@
         </article>
     }
 
-    <p class="mt-8 font-mono text-xs font-semibold uppercase tracking-[0.16em] text-muted" aria-live="polite">@rows.Count @(rows.Count == 1 ? "player" : "players") shown</p>
+    @if (_error is not null)
+    {
+        <DbError Message="@_error" OnRetry="Load" />
+    }
 
-    @if (rows.Count == 0)
+    <p class="mt-8 font-mono text-xs font-semibold uppercase tracking-[0.16em] text-muted" aria-live="polite">@if (_loading) { <span class="spinner mr-2 align-[-2px]" aria-hidden="true"></span> }@rows.Count @(rows.Count == 1 ? "player" : "players") shown</p>
+
+    @if (rows.Count == 0 && !_loading && _error is null)
     {
         <div class="card mt-3 p-10 text-center">
             <h2 class="text-3xl">Nobody here yet</h2>
@@ -70,7 +78,7 @@
             <button type="button" class="btn mt-6" @onclick="Clear">Clear filters</button>
         </div>
     }
-    else
+    else if (rows.Count > 0)
     {
         <div class="card mt-3 overflow-hidden">
             <div class="board-row head" aria-hidden="true">
@@ -102,39 +110,91 @@
 </section>
 
 @code {
-    record Row(Player P, int Score, int Rank);
+    record Row(LeaderboardRow P, int Score, int Rank);
 
     string _tab = "all", _sort = "score", _q = "", _catKey = "";
+    List<Row> _rows = new();
+    bool _loading;
+    string? _error;
+    int _version;                                   // ignores answers that arrive out of order
+    CancellationTokenSource? _debounce;
 
     Category? Cat => Enum.TryParse<Category>(_catKey, out var c) ? c : null;
 
     string SortName => _sort switch { "streak" => "streak", "acc" => "accuracy", _ => "points" };
 
-    string WeekStart => DateTime.Today.AddDays(-(((int)DateTime.Today.DayOfWeek + 6) % 7)).ToString("d MMM");
+    protected override Task OnInitializedAsync() => Load();
 
-    int ScoreOf(Player p) => Cat is { } c && p.Scores.TryGetValue(c, out var v) ? v : p.Total;
+    Task SetTab(string tab) { _tab = tab; return Load(); }
 
-    List<Row> Rows
+    Task SetSort(string sort) { _sort = sort; return Load(); }
+
+    // Wait until typing pauses for 250 ms, so one search sends one request, not one per key.
+    async Task SearchChanged()
     {
-        get
-        {
-            var term = _q.Trim();
-            var list = SampleData.Players
-                .Where(p => _tab == "all" || p.IsFriend || p.IsYou)
-                .Where(p => term.Length == 0
-                    || p.Name.Contains(term, StringComparison.OrdinalIgnoreCase)
-                    || p.Handle.Contains(term, StringComparison.OrdinalIgnoreCase))
-                .Select(p => (P: p, S: ScoreOf(p)));
+        _debounce?.Cancel();
+        _debounce = new CancellationTokenSource();
+        try { await Task.Delay(250, _debounce.Token); }
+        catch (TaskCanceledException) { return; }
+        await Load();
+    }
 
-            var sorted = _sort switch
+    /// <summary>
+    /// One GET per change. The database filters (friends, search), sorts and limits the rows;
+    /// the browser only numbers them.
+    /// </summary>
+    async Task Load()
+    {
+        var version = ++_version;
+        _loading = true;
+        _error = null;
+        try
+        {
+            var scoreColumn = LeaderboardRow.ScoreColumn(Cat);
+            IPostgrestTable<LeaderboardRow> query = Db.From<LeaderboardRow>();
+
+            if (_tab == "friends")
+                query = query.Where(x => x.InCircle == true);
+
+            // Commas, brackets and wildcards have meaning in a PostgREST filter, so drop them.
+            var term = new string(_q.Trim().Where(ch => ",()*%\\\"".IndexOf(ch) < 0).ToArray());
+            if (term.Length > 0)
             {
-                "streak" => list.OrderByDescending(x => x.P.Streak).ThenByDescending(x => x.S),
-                "acc" => list.OrderByDescending(x => x.P.Accuracy).ThenByDescending(x => x.S),
-                _ => list.OrderByDescending(x => x.S),
+                query = query.Or(new List<IPostgrestQueryFilter>
+                {
+                    new QueryFilter("name", Operator.ILike, $"%{term}%"),
+                    new QueryFilter("handle", Operator.ILike, $"%{term}%"),
+                });
+            }
+
+            query = _sort switch
+            {
+                "streak" => query.Order("streak", Ordering.Descending).Order(scoreColumn, Ordering.Descending),
+                "acc" => query.Order("accuracy", Ordering.Descending).Order(scoreColumn, Ordering.Descending),
+                _ => query.Order(scoreColumn, Ordering.Descending),
             };
-            return sorted.Select((x, i) => new Row(x.P, x.S, i + 1)).ToList();
+
+            var res = await query.Range(0, 49).Get();         // first 50
+            if (version != _version) return;                  // a newer request already answered
+
+            var cat = Cat;
+            _rows = res.Models.Select((p, i) => new Row(p, p.ScoreFor(cat), i + 1)).ToList();
+        }
+        catch (Exception ex)
+        {
+            if (version == _version) _error = ex.Message;
+        }
+        finally
+        {
+            if (version == _version) _loading = false;
         }
     }
 
-    void Clear() { _q = ""; _catKey = ""; _tab = "all"; }
+    async Task Clear()
+    {
+        _q = ""; _catKey = ""; _tab = "all";
+        await Load();
+    }
+
+    public void Dispose() => _debounce?.Cancel();
 }

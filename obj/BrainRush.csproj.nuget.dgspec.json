@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "Z:\\L23Y16W28\\midterm\\BrainRush\\BrainRush.csproj": {}
+    "Z:\\L23Y16W28\\BrainRush-supabase\\BrainRush.csproj": {}
   },
   "projects": {
-    "Z:\\L23Y16W28\\midterm\\BrainRush\\BrainRush.csproj": {
+    "Z:\\L23Y16W28\\BrainRush-supabase\\BrainRush.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "Z:\\L23Y16W28\\midterm\\BrainRush\\BrainRush.csproj",
+        "projectUniqueName": "Z:\\L23Y16W28\\BrainRush-supabase\\BrainRush.csproj",
         "projectName": "BrainRush",
-        "projectPath": "Z:\\L23Y16W28\\midterm\\BrainRush\\BrainRush.csproj",
+        "projectPath": "Z:\\L23Y16W28\\BrainRush-supabase\\BrainRush.csproj",
         "packagesPath": "C:\\Users\\L23Y16W28\\.nuget\\packages\\",
-        "outputPath": "Z:\\L23Y16W28\\midterm\\BrainRush\\obj\\",
+        "outputPath": "Z:\\L23Y16W28\\BrainRush-supabase\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -49,6 +49,33 @@
       "frameworks": {
         "net8.0": {
           "targetAlias": "net8.0",
+          "dependencies": {
+            "Microsoft.AspNetCore.Components.WebAssembly": {
+              "target": "Package",
+              "version": "[8.0.34, )"
+            },
+            "Microsoft.AspNetCore.Components.WebAssembly.DevServer": {
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[8.0.34, )"
+            },
+            "Microsoft.NET.ILLink.Tasks": {
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[8.0.8, )",
+              "autoReferenced": true
+            },
+            "Microsoft.NET.Sdk.WebAssembly.Pack": {
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[8.0.8, )",
+              "autoReferenced": true
+            },
+            "Supabase": {
+              "target": "Package",
+              "version": "[8.12.0, )"
+            }
+          },
           "imports": [
             "net461",
             "net462",
@@ -61,14 +88,16 @@
           "assetTargetFallback": true,
           "warn": true,
           "frameworkReferences": {
-            "Microsoft.AspNetCore.App": {
-              "privateAssets": "none"
-            },
             "Microsoft.NETCore.App": {
               "privateAssets": "all"
             }
           },
           "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.400/PortableRuntimeIdentifierGraph.json"
+        }
+      },
+      "runtimes": {
+        "browser-wasm": {
+          "#import": []
         }
       }
     }

@@ -1,0 +1,32 @@
+@* Shows a database error in plain words, with a retry button. *@
+
+<div class="card mt-6 border-coral/60 p-6" role="alert">
+    <p class="kicker text-coral">Could not reach the database</p>
+    <p class="mt-2 text-fg">@Friendly</p>
+    <p class="mt-2 font-mono text-xs text-muted">@Message</p>
+    @if (OnRetry.HasDelegate)
+    {
+        <button type="button" class="btn mt-4" @onclick="OnRetry">Try again</button>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Message { get; set; } = "";
+    [Parameter] public EventCallback OnRetry { get; set; }
+
+    // Matches the "When it does not work" table from the assignment.
+    string Friendly => Message switch
+    {
+        var m when m.Contains("permission denied", StringComparison.OrdinalIgnoreCase)
+            => "A GRANT is missing. Run database/schema.sql again in the SQL Editor.",
+        var m when m.Contains("row-level security", StringComparison.OrdinalIgnoreCase)
+            => "A row level security policy is missing. Run database/schema.sql again.",
+        var m when m.Contains("does not exist", StringComparison.OrdinalIgnoreCase) || m.Contains("schema cache", StringComparison.OrdinalIgnoreCase)
+            => "A table or view is missing. Run database/schema.sql, then database/seed.sql.",
+        var m when m.Contains("violates check constraint", StringComparison.OrdinalIgnoreCase)
+            => "The database rejected that value. Check the field limits and try again.",
+        var m when m.Contains("Failed to fetch", StringComparison.OrdinalIgnoreCase) || m.Contains("TypeError", StringComparison.Ordinal)
+            => "The request did not reach Supabase. Check the Url in wwwroot/appsettings.json, or restore the project if it was paused.",
+        _ => "Something went wrong talking to Supabase.",
+    };
+}

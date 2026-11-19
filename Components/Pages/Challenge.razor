@@ -1,5 +1,6 @@
 @page "/challenge"
-@rendermode InteractiveServer
+@inject Supabase.Client Db
+@inject PlayerSession Session
 
 <PageTitle>Daily challenge · BrainRush</PageTitle>
 
@@ -16,17 +17,15 @@
                 <div class="p-6">
                     <p class="kicker text-mint">Challenge sent</p>
                     <h2 class="display mt-2 text-4xl">@_made.Title</h2>
-                    <p class="mt-3 text-muted">@(_made.Invited.Count - 1) @(_made.Invited.Count == 2 ? "friend has" : "friends have") been invited to @_made.Questions @_made.Topic.Label() questions at @_made.Seconds seconds each.</p>
+                    <p class="mt-3 text-muted">@(_made.Members.Count - 1) @(_made.Members.Count == 2 ? "friend has" : "friends have") been invited to @_made.QuestionCount @_made.Arena.Label() questions at @_made.Seconds seconds each.</p>
                     <div class="mt-5 flex -space-x-2" aria-hidden="true">
-                        @foreach (var h in _made.Invited)
+                        @foreach (var m in _made.Members)
                         {
-                            var p = SampleData.Find(h);
-                            if (p is null) { continue; }
-                            <span class="avatar avatar-sm @p.AvatarCss ring-2 ring-surface">@p.Initials</span>
+                            <span class="avatar avatar-sm @m.AvatarCss ring-2 ring-surface">@m.Initials</span>
                         }
                     </div>
                     <div class="mt-6 flex flex-wrap gap-3">
-                        <a href="/play?category=@_made.Topic" class="btn">Play it now</a>
+                        <a href="/play?challenge=@_made.Id" class="btn">Play it now</a>
                         <button type="button" class="btn btn-ghost" @onclick="Reset">Create another</button>
                     </div>
                 </div>
@@ -36,6 +35,10 @@
         {
             <EditForm EditContext="_ctx" OnValidSubmit="Submit" class="card mt-8 grid gap-6 p-6" novalidate>
                 <DataAnnotationsValidator />
+                @if (_submitError is not null)
+                {
+                    <p class="rounded-lg border border-coral bg-coral/10 p-3 text-sm text-fg" role="alert">Could not send the challenge: @_submitError</p>
+                }
 
                 <div>
                     <label for="title" class="field-label">Challenge name</label>
@@ -75,6 +78,10 @@
                 <fieldset>
                     <legend class="field-label">Invite friends · @_form.Friends.Count selected</legend>
                     <div class="mt-2 flex flex-wrap gap-2">
+                        @if (_friends.Count == 0)
+                        {
+                            <p class="text-sm text-muted">No friends yet. Mark players with is_friend = true in the players table.</p>
+                        }
                         @foreach (var f in _friends)
                         {
                             var on = _form.Friends.Contains(f.Handle);
@@ -113,30 +120,57 @@
     <aside class="xl:col-span-5" aria-labelledby="live-h">
         <div class="flex items-end justify-between gap-3">
             <h2 id="live-h" class="display text-3xl">Live right now</h2>
-            <p class="pill"><span class="size-1.5 animate-pulse rounded-full bg-lime"></span>Closes in @SampleData.UntilReset()</p>
+            <p class="pill"><span class="size-1.5 animate-pulse rounded-full bg-lime"></span>Closes in @PlayerSession.UntilReset()</p>
         </div>
+        @if (_error is not null)
+        {
+            <DbError Message="@_error" OnRetry="Load" />
+        }
+        else if (_loading)
+        {
+            <p class="mt-5 flex items-center gap-3 text-muted"><span class="spinner" aria-hidden="true"></span> Loading challenges…</p>
+        }
+        else if (_live.Count == 0)
+        {
+            <p class="card mt-5 p-5 text-muted">No live challenges. Send the first one.</p>
+        }
         <ul class="mt-5 grid gap-4">
             @foreach (var c in _live)
             {
-                var yourTurn = c.Invited.Contains("you") && !c.Finished.Contains("you");
+                var yourTurn = _me is not null && c.Includes(_me.Id) && !c.HasFinished(_me.Id);
+                var yours = _me is not null && c.HostId == _me.Id;
                 <li class="card p-5">
                     <div class="flex items-start justify-between gap-3">
                         <h3 class="text-xl">@c.Title</h3>
-                        <span class="tag @c.Topic.Css()">@c.Topic.Label()</span>
+                        <span class="tag @c.Arena.Css()">@c.Arena.Label()</span>
                     </div>
-                    <p class="mt-1 font-mono text-xs text-muted">Hosted by @(SampleData.Find(c.Host)?.Name ?? c.Host) · @c.Questions Qs · @c.Seconds s</p>
-                    <div class="mt-4 flex gap-1.5" role="img" aria-label="@c.Finished.Count of @c.Invited.Count finished">
-                        @for (var s = 0; s < c.Invited.Count; s++)
+                    <p class="mt-1 font-mono text-xs text-muted">Hosted by @(yours ? "you" : c.HostName) · @c.QuestionCount Qs · @c.Seconds s</p>
+                    <div class="mt-4 flex gap-1.5" role="img" aria-label="@c.FinishedCount of @c.Members.Count finished">
+                        @for (var s = 0; s < c.Members.Count; s++)
                         {
-                            <span class="seg @(s < c.Finished.Count ? "seg-on" : "")"></span>
+                            <span class="seg @(s < c.FinishedCount ? "seg-on" : "")"></span>
                         }
                     </div>
                     <div class="mt-4 flex items-center justify-between gap-3">
-                        <span class="font-mono text-sm text-muted">@c.Finished.Count / @c.Invited.Count done</span>
-                        @if (yourTurn)
-                        {
-                            <a href="/play?category=@c.Topic" class="btn">Your turn</a>
-                        }
+                        <span class="font-mono text-sm text-muted">@c.FinishedCount / @c.Members.Count done</span>
+                        <span class="flex items-center gap-2">
+                            @if (yours)
+                            {
+                                if (_confirmCancel == c.Id)
+                                {
+                                    <button type="button" class="btn btn-ghost" @onclick="() => _confirmCancel = null">Keep it</button>
+                                    <button type="button" class="btn border-coral bg-coral text-night" disabled="@_cancelling" @onclick="() => Cancel(c.Id)">Yes, cancel</button>
+                                }
+                                else
+                                {
+                                    <button type="button" class="btn btn-ghost" @onclick="() => _confirmCancel = c.Id">Cancel</button>
+                                }
+                            }
+                            @if (yourTurn && _confirmCancel != c.Id)
+                            {
+                                <a href="/play?challenge=@c.Id" class="btn">Your turn</a>
+                            }
+                        </span>
                     </div>
                 </li>
             }
@@ -147,12 +181,55 @@
 @code {
     ChallengeForm _form = new();
     EditContext _ctx = default!;
-    bool _busy, _done;
-    DailyChallenge? _made;
-    readonly List<Player> _friends = SampleData.Players.Where(p => p.IsFriend).ToList();
-    readonly List<DailyChallenge> _live = SampleData.Challenges.ToList();
+    bool _busy, _done, _loading = true, _cancelling;
+    long? _confirmCancel;
+    string? _error, _submitError;
+    ChallengeCard? _made;
+    Player? _me;
+    List<Player> _friends = new();
+    List<ChallengeCard> _live = new();
 
-    protected override void OnInitialized() => _ctx = new EditContext(_form);
+    protected override async Task OnInitializedAsync()
+    {
+        _ctx = new EditContext(_form);
+        await Load();
+    }
+
+    async Task Load()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            // Three independent GETs at once. Each filter runs in the database.
+            var meTask = Session.GetMeAsync();
+            var friendsTask = Db.From<Player>()
+                .Where(p => p.IsFriend == true)
+                .Order("name", Ordering.Ascending)
+                .Get();
+            var liveTask = LoadLive();
+            await Task.WhenAll(meTask, friendsTask, liveTask);
+
+            _me = meTask.Result;
+            _friends = friendsTask.Result.Models;
+            _live = liveTask.Result;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    // One GET: live challenges (the view already skips cancelled ones) with members included.
+    async Task<List<ChallengeCard>> LoadLive() =>
+        (await Db.From<ChallengeCard>()
+            .Order("created_at", Ordering.Descending)
+            .Range(0, 19)
+            .Get()).Models;
 
     void Toggle(string handle)
     {
@@ -162,23 +239,70 @@
 
     async Task Submit()
     {
+        if (_busy) return;                       // the button is disabled too, so a double click cannot POST twice
         _busy = true;
-        StateHasChanged();
-        await Task.Delay(900);
-        _made = new DailyChallenge
+        _submitError = null;
+        try
         {
-            Id = _live.Count + 1,
-            Title = _form.Title.Trim(),
-            Topic = _form.Topic ?? Category.General,
-            Host = "you",
-            Questions = _form.QuestionCount,
-            Seconds = _form.SecondsPerQuestion,
-            Note = _form.Note,
-            Invited = new List<string> { "you" }.Concat(_form.Friends).ToList(),
-        };
-        _live.Insert(0, _made);
-        _busy = false;
-        _done = true;
+            var me = await Session.GetMeAsync()
+                     ?? throw new InvalidOperationException("No player has is_you = true. Run database/seed.sql.");
+
+            // 1. POST the challenge. The database creates the id and sends the row back.
+            var res = await Db.From<DailyChallenge>().Insert(new DailyChallenge
+            {
+                Title = _form.Title.Trim(),
+                TopicName = (_form.Topic ?? Category.General).ToString(),
+                HostId = me.Id,
+                QuestionCount = _form.QuestionCount,
+                Seconds = _form.SecondsPerQuestion,
+                Note = string.IsNullOrWhiteSpace(_form.Note) ? null : _form.Note.Trim(),
+            });
+            var created = res.Models.First();
+
+            // 2. POST every invite in ONE request (a list insert), not one request per friend.
+            var invites = _friends
+                .Where(f => _form.Friends.Contains(f.Handle))
+                .Select(f => new ChallengePlayer { ChallengeId = created.Id, PlayerId = f.Id })
+                .Prepend(new ChallengePlayer { ChallengeId = created.Id, PlayerId = me.Id })
+                .ToList();
+            await Db.From<ChallengePlayer>().Insert(invites);
+
+            // 3. GET the list again so the page matches the Table Editor.
+            _live = await LoadLive();
+            _made = _live.FirstOrDefault(c => c.Id == created.Id);
+            _done = _made is not null;
+        }
+        catch (Exception ex)
+        {
+            _submitError = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    /// <summary>Soft delete: fill in deleted_at. The row stays in the table; the view stops showing it.</summary>
+    async Task Cancel(long id)
+    {
+        _cancelling = true;
+        try
+        {
+            await Db.From<DailyChallenge>()
+                .Where(c => c.Id == id)                // always Where, or every row would change
+                .Set(c => c.DeletedAt, DateTime.UtcNow)
+                .Update();
+            _confirmCancel = null;
+            _live = await LoadLive();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _cancelling = false;
+        }
     }
 
     void Reset()
@@ -187,5 +311,6 @@
         _ctx = new EditContext(_form);
         _made = null;
         _done = false;
+        _submitError = null;
     }
 }
